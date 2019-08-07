@@ -8,4 +8,9 @@ execute_process(COMMAND python -c
 # set(pybind11_DIR /usr/lib/python3.7/site-packages/pybind11_cmake)
 include_directories(include)
 find_package(pybind11 REQUIRED)
-pybind11_add_module(mp_slam_cpp main.cpp src/Impls.cpp src/ScanMatcher.cpp src/ScanManager.cpp)
+find_package(Boost COMPONENTS thread REQUIRED)
+pybind11_add_module(mp_slam_cpp src/PythonInterface.cpp src/Impls.cpp src/ScanMatcher.cpp src/ScanManager.cpp)
+
+add_executable(test main.cpp src/Impls.cpp src/ScanMatcher.cpp src/ScanManager.cpp)
+
+target_link_libraries(test PRIVATE Boost::thread)

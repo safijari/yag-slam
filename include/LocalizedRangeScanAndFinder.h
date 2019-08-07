@@ -158,7 +158,6 @@ class LocalizedRangeScan;
 
 class LaserRangeFinder : public Sensor {
 public:
-public:
   /**
    * Destructor
    */
@@ -311,10 +310,6 @@ public:
    * @param rName name of sensor - if no name is specified default name will be
    * assigned
    * @return laser range finder
-   */
-private:
-  /**
-   * Constructs a LaserRangeFinder object with given ID
    */
   LaserRangeFinder(const Name &rName)
       : Sensor(rName), m_pMinimumRange(0.0), m_pMaximumRange(80.0),

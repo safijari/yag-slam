@@ -47,7 +47,7 @@ public:
    * Gets the class name of this object
    * @return class name
    */
-  virtual const char *GetClassName() const = 0;
+  // virtual const char *GetClassName() const = 0;
 
   /**
    * Gets the type of this object

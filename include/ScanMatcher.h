@@ -19,7 +19,7 @@ public:
   /**
    * Destructor
    */
-  virtual ~ScanMatcherConfig();
+  // virtual ~ScanMatcherConfig();
 
   ScanMatcherConfig(
               // Mapper* pMapper
