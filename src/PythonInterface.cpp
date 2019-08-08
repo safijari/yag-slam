@@ -59,7 +59,11 @@ public:
     Pose2 mean;
     Matrix3 covariance;
 
-    return this->matcher->MatchScan(query, base, mean, covariance);
+    auto ret = this->matcher->MatchScan(query, base, mean, covariance);
+
+    query->SetSensorPose(mean);
+
+    return ret;
   }
 
   ~Wrapper() {
