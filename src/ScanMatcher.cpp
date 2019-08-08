@@ -1,11 +1,13 @@
 #include <algorithm>
 #include "ScanMatcher.h"
 #include "AdditionalMath.h"
+#include <stdio.h>
 
 ScanMatcher::~ScanMatcher() {
   delete m_pCorrelationGrid;
   delete m_pSearchSpaceProbs;
   delete m_pGridLookup;
+  delete config;
 }
 
 ScanMatcher *ScanMatcher::Create(
@@ -121,11 +123,13 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
       0.5 * (searchDimensions.GetY() - 1) *
           m_pCorrelationGrid->GetResolution());
 
+  
   // a coarse search only checks half the cells in each dimension
   Vector2<double> coarseSearchResolution(
       2 * m_pCorrelationGrid->GetResolution(),
       2 * m_pCorrelationGrid->GetResolution());
 
+  
   // actual scan-matching
   double bestResponse =
       CorrelateScan(pScan, scanPose, coarseSearchOffset, coarseSearchResolution,
@@ -133,6 +137,7 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
                     config->m_pCoarseAngleResolution, doPenalize,
                     rMean, rCovariance, false);
 
+  
   if (config->m_pUseResponseExpansion == true) {
     if (amath::DoubleEqual(bestResponse, 0.0)) {
 #ifdef KARTO_DEBUG
@@ -156,6 +161,7 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
         }
       }
 
+      
 #ifdef KARTO_DEBUG
       if (amath::DoubleEqual(bestResponse, 0.0)) {
         std::cout << "Mapper Warning: Unable to calculate response!"
@@ -165,6 +171,7 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
     }
   }
 
+  
   if (doRefineMatch) {
     Vector2<double> fineSearchOffset(coarseSearchResolution * 0.5);
     Vector2<double> fineSearchResolution(
@@ -177,6 +184,8 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
                       doPenalize, rMean, rCovariance, true);
   }
 
+
+  
 #ifdef KARTO_DEBUG
   std::cout << "  BEST POSE = " << rMean << " BEST RESPONSE = " << bestResponse
             << ",  VARIANCE = " << rCovariance(0, 0) << ", "
@@ -184,6 +193,7 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
 #endif
   assert(amath::InRange(rMean.GetHeading(), -KT_PI, KT_PI));
 
+  
   return bestResponse;
 }
 
@@ -216,10 +226,13 @@ double ScanMatcher::CorrelateScan(
     bool doingFineMatch) {
   assert(searchAngleResolution != 0.0);
 
+  
   // setup lookup arrays
   m_pGridLookup->ComputeOffsets(pScan, rSearchCenter.GetHeading(),
                                 searchAngleOffset, searchAngleResolution);
 
+
+  
   // only initialize probability grid if computing positional covariance (during
   // coarse match)
   if (!doingFineMatch) {
@@ -232,17 +245,20 @@ double ScanMatcher::CorrelateScan(
 
   // calculate position arrays
 
+  
   std::vector<double> xPoses;
   int32_t nX =
       static_cast<int32_t>(amath::Round(rSearchSpaceOffset.GetX() * 2.0 /
                                          rSearchSpaceResolution.GetX()) +
                              1);
+  
   double startX = -rSearchSpaceOffset.GetX();
   for (int32_t xIndex = 0; xIndex < nX; xIndex++) {
     xPoses.push_back(startX + xIndex * rSearchSpaceResolution.GetX());
   }
   assert(amath::DoubleEqual(xPoses.back(), -startX));
 
+  
   std::vector<double> yPoses;
   int32_t nY =
       static_cast<int32_t>(amath::Round(rSearchSpaceOffset.GetY() * 2.0 /
@@ -252,6 +268,8 @@ double ScanMatcher::CorrelateScan(
   for (int32_t yIndex = 0; yIndex < nY; yIndex++) {
     yPoses.push_back(startY + yIndex * rSearchSpaceResolution.GetY());
   }
+
+  
   assert(amath::DoubleEqual(yPoses.back(), -startY));
 
   // calculate pose response array size

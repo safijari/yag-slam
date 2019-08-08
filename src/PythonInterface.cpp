@@ -4,11 +4,13 @@
 
 #include "LocalizedRangeScanAndFinder.h"
 #include "ScanMatcher.h"
+#include "SensorManager.h"
 
 class Wrapper {
   LaserRangeFinder *rangeFinder;
   Name name;
   ScanMatcher *matcher;
+  // SensorManager *sensor_manager;
 
 public:
   Wrapper(std::string sensorName, double angularResolution, double angleMin,
@@ -18,13 +20,16 @@ public:
     this->rangeFinder->SetAngularResolution(angularResolution);
     this->rangeFinder->SetMinimumAngle(angleMin);
     this->rangeFinder->SetMaximumAngle(angleMax);
-    ScanMatcherConfig config;
+    this->rangeFinder->Update();
+    // this->sensor_manager = new SensorManager();
+    SensorManager::GetInstance()->RegisterSensor(this->rangeFinder);
+    ScanMatcherConfig * config = new ScanMatcherConfig();
 
     // CorrelationSearchSpaceDimension
     // CorrelationSearchSpaceResolution
     // CorrelationSearchSpaceSmearDeviation
     // rangeThreshold
-    this->matcher = ScanMatcher::Create(&config, 0.3, 0.01, 0.03, 12);
+    this->matcher = ScanMatcher::Create(config, 0.3, 0.01, 0.03, 12);
   }
 
   LaserRangeFinder *getRangeFinder() { return this->rangeFinder; }
@@ -40,12 +45,32 @@ public:
     return true;
   }
 
-  ~Wrapper() { delete this->rangeFinder; delete this->matcher; }
+  LocalizedRangeScan *MakeScan(std::vector<double> ranges, double x, double y,
+                               double yaw) {
+    auto scan = new LocalizedRangeScan(this->name, ranges);
+    scan->SetOdometricPose(Pose2(x, y, yaw));
+    scan->SetCorrectedPose(Pose2(x, y, yaw));
+
+    return scan;
+  }
+
+  double MatchScan(LocalizedRangeScan *query,
+                   const LocalizedRangeScanVector &base) {
+    Pose2 mean;
+    Matrix3 covariance;
+
+    return this->matcher->MatchScan(query, base, mean, covariance);
+  }
+
+  ~Wrapper() {
+    delete this->rangeFinder;
+    delete this->matcher;
+  }
 };
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(open_karto, m) {
+PYBIND11_MODULE(mp_slam_cpp, m) {
   py::class_<Pose2>(m, "Pose2")
       .def(py::init<double, double, double>())
       .def_property("x", &Pose2::GetX, &Pose2::SetX)
@@ -88,30 +113,12 @@ PYBIND11_MODULE(open_karto, m) {
       .def("set_corrected_pose", &LocalizedRangeScan::SetCorrectedPose)
       .def("get_corrected_pose", &LocalizedRangeScan::GetCorrectedPose);
 
-  // py::enum_<GridStates>(m, "GridStates")
-  //     .value("Unknown", GridStates::GridStates_Unknown)
-  //     .value("Occupied", GridStates::GridStates_Occupied)
-  //     .value("Free", GridStates::GridStates_Free);
-
-  // py::class_<OccupancyGrid>(m, "OccupancyGrid")
-  //     .def_property_readonly("width", &OccupancyGrid::GetWidth)
-  //     .def_property_readonly("height", &OccupancyGrid::GetHeight)
-  //     .def_property_readonly("offset",
-  //                            [](const OccupancyGrid &a) {
-  //                              auto offset =
-  //                                  (a.GetCoordinateConverter()->GetOffset());
-  //                              return offset;
-  //                            })
-  //     .def("get_value",
-  //          [](const OccupancyGrid &a, kt_int32s x, kt_int32s y) {
-  //            return a.GetValue(Vector2<kt_int32s>(x, y));
-  //          });
-
   py::class_<Wrapper>(m, "Wrapper")
       .def(py::init<std::string, double, double, double>())
       .def("process_scan", &Wrapper::ProcessLocalizedRangeScan)
-      // .def("get_processed_scans", &Wrapper::GetProcessedScans,
-      //      py::return_value_policy::reference)
+      .def("make_scan", &Wrapper::MakeScan, py::return_value_policy::reference)
+      .def("match_scan", &Wrapper::MatchScan,
+           py::return_value_policy::reference)
       .def_property_readonly("name", &Wrapper::getName)
       .def_property_readonly("range_finder", &Wrapper::getRangeFinder);
 
