@@ -13,7 +13,10 @@ def main():
 
     print(query.get_corrected_pose())
 
-    print(mw.match_scan(query, base))
+    res = mw.match_scan(query, base)
+    print(res.best_pose)
+    query.set_corrected_pose(res.best_pose)
+    print(np.array(res.covariance))
 
     print(query.get_corrected_pose())
 

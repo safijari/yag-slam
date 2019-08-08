@@ -259,7 +259,7 @@ public:
     return rStream;
   }
 
-private:
+// private:
   double m_Matrix[3][3];
 }; // Matrix3
 

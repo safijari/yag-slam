@@ -1,10 +1,17 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <vector>
 
 #include "LocalizedRangeScanAndFinder.h"
 #include "ScanMatcher.h"
 #include "SensorManager.h"
+
+struct MatchResult {
+  Pose2 best_pose;
+  Matrix3 covariance;
+  double response;
+};
 
 class Wrapper {
   LaserRangeFinder *rangeFinder;
@@ -23,7 +30,7 @@ public:
     this->rangeFinder->Update();
     // this->sensor_manager = new SensorManager();
     SensorManager::GetInstance()->RegisterSensor(this->rangeFinder);
-    ScanMatcherConfig * config = new ScanMatcherConfig();
+    ScanMatcherConfig *config = new ScanMatcherConfig();
 
     // CorrelationSearchSpaceDimension
     // CorrelationSearchSpaceResolution
@@ -54,16 +61,14 @@ public:
     return scan;
   }
 
-  double MatchScan(LocalizedRangeScan *query,
-                   const LocalizedRangeScanVector &base) {
+  MatchResult MatchScan(LocalizedRangeScan *query,
+                        const LocalizedRangeScanVector &base) {
     Pose2 mean;
     Matrix3 covariance;
 
     auto ret = this->matcher->MatchScan(query, base, mean, covariance);
 
-    query->SetSensorPose(mean);
-
-    return ret;
+    return MatchResult{mean, covariance, ret};
   }
 
   ~Wrapper() {
@@ -125,6 +130,22 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
            py::return_value_policy::reference)
       .def_property_readonly("name", &Wrapper::getName)
       .def_property_readonly("range_finder", &Wrapper::getRangeFinder);
+
+  py::class_<MatchResult>(m, "MatchResult")
+      .def_readwrite("best_pose", &MatchResult::best_pose)
+      .def_property_readonly(
+          "covariance",
+          [](const MatchResult &a) {
+            auto ret = std::vector<std::vector<double>>(3);
+            for (int j = 0; j < 3; j++) {
+              for (int i = 0; i < 3; i++) {
+                ret[j].push_back(a.covariance.m_Matrix[j][i]);
+              }
+            }
+
+            return ret;
+          })
+      .def_readwrite("response", &MatchResult::response);
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;
