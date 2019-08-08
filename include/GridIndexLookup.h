@@ -4,6 +4,7 @@
 #include "LocalizedRangeScanAndFinder.h"
 #include "LookupArray.h"
 #include "Transform.h"
+#include <stdio.h>
 /**
  * Create lookup tables for point readings at varying angles in grid.
  * For each angle, grid indexes are calculated for each range reading.
@@ -62,27 +63,35 @@ public:
    */
   void ComputeOffsets(LocalizedRangeScan *pScan, double angleCenter,
                       double angleOffset, double angleResolution) {
-    assert(angleOffset != 0.0);
-    assert(angleResolution != 0.0);
+    assert(angleOffset > 0.0);
+    assert(angleResolution > 0.0);
+
+    
 
     int32_t nAngles = static_cast<int32_t>(
         amath::Round(angleOffset * 2.0 / angleResolution) + 1);
+    
     SetSize(nAngles);
+    
 
     //////////////////////////////////////////////////////
     // convert points into local coordinates of scan pose
 
     const PointVectorDouble &rPointReadings = pScan->GetPointReadings();
 
+    
     // compute transform to scan pose
     Transform transform(pScan->GetSensorPose());
 
+    
     Pose2Vector localPoints;
     for (auto iter : rPointReadings) {
       // do inverse transform to get points in local coordinates
       Pose2 vec = transform.InverseTransformPose(Pose2(iter, 0.0));
       localPoints.push_back(vec);
     }
+
+    
 
     //////////////////////////////////////////////////////
     // create lookup array for different angles
@@ -92,6 +101,7 @@ public:
       angle = startAngle + angleIndex * angleResolution;
       ComputeOffsets(angleIndex, angle, localPoints, pScan);
     }
+   
     // assert(amath::DoubleEqual(angle, angleCenter + angleOffset));
   }
 
@@ -158,7 +168,7 @@ private:
    * @param size
    */
   void SetSize(int32_t size) {
-    assert(size != 0);
+    assert(size > 0);
 
     if (size > m_Capacity) {
       if (m_ppLookupArray != NULL) {

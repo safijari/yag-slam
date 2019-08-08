@@ -10,7 +10,6 @@ include_directories(include)
 find_package(pybind11 REQUIRED)
 find_package(Boost COMPONENTS thread REQUIRED)
 pybind11_add_module(mp_slam_cpp src/PythonInterface.cpp src/Impls.cpp src/ScanMatcher.cpp src/ScanManager.cpp)
-
+target_link_libraries(mp_slam_cpp PRIVATE Boost::thread)
 add_executable(test main.cpp src/Impls.cpp src/ScanMatcher.cpp src/ScanManager.cpp)
-
 target_link_libraries(test PRIVATE Boost::thread)
