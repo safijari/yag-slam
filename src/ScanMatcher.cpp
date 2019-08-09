@@ -7,24 +7,27 @@ ScanMatcher::~ScanMatcher() {
   delete m_pCorrelationGrid;
   delete m_pSearchSpaceProbs;
   delete m_pGridLookup;
-  delete config;
 }
 
-ScanMatcher *ScanMatcher::Create(
-                                 ScanMatcherConfig *config,
-                                 double searchSize,
-                                 double resolution, double smearDeviation,
-                                 double rangeThreshold) {
+ScanMatcher *ScanMatcher::Create(std::shared_ptr<ScanMatcherConfig> config) {
+
+  double resolution = config->resolution;
   // invalid parameters
   if (resolution <= 0) {
     return NULL;
   }
+
+  double searchSize = config->searchSize;
   if (searchSize <= 0) {
     return NULL;
   }
+
+  double smearDeviation = config->smearDeviation;
   if (smearDeviation < 0) {
     return NULL;
   }
+
+  double rangeThreshold = config->rangeThreshold;
   if (rangeThreshold <= 0) {
     return NULL;
   }
@@ -79,8 +82,9 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
   ///////////////////////////////////////
   // set scan pose to be center of grid
 
+  // TODO Below needs to be handled elsewhere, not ScanMatcher's business
   // 1. get scan position
-  Pose2 scanPose = pScan->GetSensorPose();
+  Pose2 scanPose = pScan->GetCorrectedPose();
 
   // scan has no readings; cannot do scan matching
   // best guess of pose is based off of adjusted odometer reading

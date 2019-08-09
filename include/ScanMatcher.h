@@ -32,7 +32,11 @@ public:
     m_pAngleVariancePenalty(0.3490658503988659),
     m_pMinimumDistancePenalty(0.5),
     m_pMinimumAnglePenalty(0.9),
-    m_pUseResponseExpansion(true)
+    m_pUseResponseExpansion(true),
+    searchSize(0.3),
+    resolution(0.01),
+    smearDeviation(0.03),
+    rangeThreshold(12)
   {
   }
 
@@ -44,7 +48,10 @@ public:
   double m_pMinimumDistancePenalty;
   double m_pMinimumAnglePenalty;
   bool m_pUseResponseExpansion;
-
+  double searchSize;
+  double resolution;
+  double smearDeviation;
+  double rangeThreshold;
 };
 
 class ScanMatcher
@@ -59,11 +66,7 @@ public:
   /**
  * Create a scan matcher with the given parameters
     */
-  static ScanMatcher* Create(ScanMatcherConfig* config,
-                             double searchSize,
-                             double resolution,
-                             double smearDeviation,
-                             double rangeThreshold);
+  static ScanMatcher* Create(std::shared_ptr<ScanMatcherConfig> config);
 
   /**
  * Match given scan against set of scans
@@ -187,7 +190,7 @@ protected:
   /**
  * Default constructor
     */
-  ScanMatcher(ScanMatcherConfig* config_)
+  ScanMatcher(std::shared_ptr<ScanMatcherConfig> config_)
     :
     config(config_),
     m_pCorrelationGrid(NULL)
@@ -197,7 +200,7 @@ protected:
   }
 
 private:
-  ScanMatcherConfig* config;
+  std::shared_ptr<ScanMatcherConfig> config;
   CorrelationGrid* m_pCorrelationGrid;
   Grid<double>* m_pSearchSpaceProbs;
 
