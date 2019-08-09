@@ -21,22 +21,16 @@ class Wrapper {
 
 public:
   Wrapper(std::string sensorName, double angularResolution, double angleMin,
-          double angleMax) {
+          double angleMax, std::shared_ptr<ScanMatcherConfig> config) {
+
     this->name = Name(sensorName);
     this->rangeFinder = new LaserRangeFinder(this->name);
     this->rangeFinder->SetAngularResolution(angularResolution);
     this->rangeFinder->SetMinimumAngle(angleMin);
     this->rangeFinder->SetMaximumAngle(angleMax);
     this->rangeFinder->Update();
-    // this->sensor_manager = new SensorManager();
     SensorManager::GetInstance()->RegisterSensor(this->rangeFinder);
-    ScanMatcherConfig *config = new ScanMatcherConfig();
-
-    // CorrelationSearchSpaceDimension
-    // CorrelationSearchSpaceResolution
-    // CorrelationSearchSpaceSmearDeviation
-    // rangeThreshold
-    this->matcher = ScanMatcher::Create(config, 0.3, 0.01, 0.03, 12);
+    this->matcher = ScanMatcher::Create(config);
   }
 
   LaserRangeFinder *getRangeFinder() { return this->rangeFinder; }
@@ -123,7 +117,7 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
       .def("get_corrected_pose", &LocalizedRangeScan::GetCorrectedPose);
 
   py::class_<Wrapper>(m, "Wrapper")
-      .def(py::init<std::string, double, double, double>())
+    .def(py::init<std::string, double, double, double, std::shared_ptr<ScanMatcherConfig> >())
       .def("process_scan", &Wrapper::ProcessLocalizedRangeScan)
       .def("make_scan", &Wrapper::MakeScan, py::return_value_policy::reference)
       .def("match_scan", &Wrapper::MatchScan,
@@ -133,19 +127,34 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
 
   py::class_<MatchResult>(m, "MatchResult")
       .def_readwrite("best_pose", &MatchResult::best_pose)
-      .def_property_readonly(
-          "covariance",
-          [](const MatchResult &a) {
-            auto ret = std::vector<std::vector<double>>(3);
-            for (int j = 0; j < 3; j++) {
-              for (int i = 0; i < 3; i++) {
-                ret[j].push_back(a.covariance.m_Matrix[j][i]);
-              }
-            }
+      .def_property_readonly("covariance",
+                             [](const MatchResult &a) {
+                               auto ret = std::vector<std::vector<double>>(3);
+                               for (int j = 0; j < 3; j++) {
+                                 for (int i = 0; i < 3; i++) {
+                                   ret[j].push_back(
+                                       a.covariance.m_Matrix[j][i]);
+                                 }
+                               }
 
-            return ret;
-          })
+                               return ret;
+                             })
       .def_readwrite("response", &MatchResult::response);
+
+  py::class_<ScanMatcherConfig, std::shared_ptr<ScanMatcherConfig>>(m, "ScanMatcherConfig")
+    .def(py::init<>())
+    .def_readwrite("coarse_angle_resolution", &ScanMatcherConfig::m_pCoarseAngleResolution)
+    .def_readwrite("coarse_search_angle_offset", &ScanMatcherConfig::m_pCoarseSearchAngleOffset)
+    .def_readwrite("fine_search_angle_offset", &ScanMatcherConfig::m_pFineSearchAngleOffset)
+    .def_readwrite("distance_variance_penalty", &ScanMatcherConfig::m_pDistanceVariancePenalty)
+    .def_readwrite("angle_variance_penalty", &ScanMatcherConfig::m_pAngleVariancePenalty)
+    .def_readwrite("minimum_distance_penalty", &ScanMatcherConfig::m_pMinimumDistancePenalty)
+    .def_readwrite("minimum_angle_penalty", &ScanMatcherConfig::m_pMinimumAnglePenalty)
+    .def_readwrite("use_response_expansion", &ScanMatcherConfig::m_pUseResponseExpansion)
+  .def_readwrite("search_size", &ScanMatcherConfig::searchSize)
+  .def_readwrite("resolution", &ScanMatcherConfig::resolution)
+  .def_readwrite("smear_deviation", &ScanMatcherConfig::smearDeviation)
+  .def_readwrite("range_threshold", &ScanMatcherConfig::rangeThreshold);
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;

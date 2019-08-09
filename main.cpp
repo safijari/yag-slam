@@ -16,6 +16,6 @@
 
 int main() {
   ScanMatcherConfig config;
-  ScanMatcher *matcher = ScanMatcher::Create(&config, 10, 0.5, 1.0, 10);
+  // ScanMatcher *matcher = ScanMatcher::Create(&config);
   return 0;
 }

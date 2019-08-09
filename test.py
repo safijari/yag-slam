@@ -1,10 +1,11 @@
 import numpy as np
 import cv2
 
-from mp_slam_cpp import Wrapper, Pose2
+from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig
 
 def main():
-    mw = Wrapper('laser0', np.deg2rad(0.5), -1.0, 1.0)
+    config = ScanMatcherConfig()
+    mw = Wrapper('laser0', np.deg2rad(0.5), -1.0, 1.0, config)
 
     mw.range_finder.set_offset_pose(Pose2(1.0, 0.0, 0.0))
 
