@@ -292,13 +292,11 @@ double ScanMatcher::CorrelateScan(
           rSearchCenter.GetX() + startX, rSearchCenter.GetY() + startY));
 
   int32_t poseResponseCounter = 0;
-  // forEachAs(std::vector<double>, &yPoses, yIter) {
   for (auto yIter : yPoses) {
     double y = yIter;
     double newPositionY = rSearchCenter.GetY() + y;
     double squareY = amath::Square(y);
 
-    // forEachAs(std::vector<double>, &xPoses, xIter) {
     for (auto xIter : xPoses) {
       double x = xIter;
       double newPositionX = rSearchCenter.GetX() + x;
