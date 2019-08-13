@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 try:
     import pybind11_cmake
 except ImportError:
@@ -16,6 +16,7 @@ setup(
     author_email='',
     description='',
     long_description='',
+    packages=find_packages(),
     setup_requires=['pybind11_cmake'],
     ext_modules=[CMakeExtension('mp_slam_cpp')],
     cmdclass=dict(build_ext=CMakeBuild),
