@@ -40,7 +40,7 @@ class MPScanMatcher(object):
             self.config.__setattr__(key, value)
 
         sensor_name = str(uuid4()) if not sensor_name else sensor_name
-        self.matcher = Wrapper(self.sensor_name, angular_res, angle_min, angle_max, self.config)
+        self.matcher = Wrapper(sensor_name, angular_res, angle_min, angle_max, self.config)
 
         self.scan_buffer_len = scan_buffer_len
         self.scan_buffer_distance = scan_buffer_distance
