@@ -114,10 +114,16 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
       .def("set_odometric_pose", &LocalizedRangeScan::SetOdometricPose)
       .def("get_odometric_pose", &LocalizedRangeScan::GetOdometricPose)
       .def("set_corrected_pose", &LocalizedRangeScan::SetCorrectedPose)
-      .def("get_corrected_pose", &LocalizedRangeScan::GetCorrectedPose);
+      .def("get_corrected_pose", &LocalizedRangeScan::GetCorrectedPose)
+      .def_property("odom_pose", &LocalizedRangeScan::GetOdometricPose,
+                    &LocalizedRangeScan::SetOdometricPose)
+      .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
+                    &LocalizedRangeScan::SetCorrectedPose)
+      .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector);
 
   py::class_<Wrapper>(m, "Wrapper")
-    .def(py::init<std::string, double, double, double, std::shared_ptr<ScanMatcherConfig> >())
+      .def(py::init<std::string, double, double, double,
+                    std::shared_ptr<ScanMatcherConfig>>())
       .def("process_scan", &Wrapper::ProcessLocalizedRangeScan)
       .def("make_scan", &Wrapper::MakeScan, py::return_value_policy::reference)
       .def("match_scan", &Wrapper::MatchScan,
@@ -141,20 +147,29 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
                              })
       .def_readwrite("response", &MatchResult::response);
 
-  py::class_<ScanMatcherConfig, std::shared_ptr<ScanMatcherConfig>>(m, "ScanMatcherConfig")
-    .def(py::init<>())
-    .def_readwrite("coarse_angle_resolution", &ScanMatcherConfig::m_pCoarseAngleResolution)
-    .def_readwrite("coarse_search_angle_offset", &ScanMatcherConfig::m_pCoarseSearchAngleOffset)
-    .def_readwrite("fine_search_angle_offset", &ScanMatcherConfig::m_pFineSearchAngleOffset)
-    .def_readwrite("distance_variance_penalty", &ScanMatcherConfig::m_pDistanceVariancePenalty)
-    .def_readwrite("angle_variance_penalty", &ScanMatcherConfig::m_pAngleVariancePenalty)
-    .def_readwrite("minimum_distance_penalty", &ScanMatcherConfig::m_pMinimumDistancePenalty)
-    .def_readwrite("minimum_angle_penalty", &ScanMatcherConfig::m_pMinimumAnglePenalty)
-    .def_readwrite("use_response_expansion", &ScanMatcherConfig::m_pUseResponseExpansion)
-  .def_readwrite("search_size", &ScanMatcherConfig::searchSize)
-  .def_readwrite("resolution", &ScanMatcherConfig::resolution)
-  .def_readwrite("smear_deviation", &ScanMatcherConfig::smearDeviation)
-  .def_readwrite("range_threshold", &ScanMatcherConfig::rangeThreshold);
+  py::class_<ScanMatcherConfig, std::shared_ptr<ScanMatcherConfig>>(
+      m, "ScanMatcherConfig")
+      .def(py::init<>())
+      .def_readwrite("coarse_angle_resolution",
+                     &ScanMatcherConfig::m_pCoarseAngleResolution)
+      .def_readwrite("coarse_search_angle_offset",
+                     &ScanMatcherConfig::m_pCoarseSearchAngleOffset)
+      .def_readwrite("fine_search_angle_offset",
+                     &ScanMatcherConfig::m_pFineSearchAngleOffset)
+      .def_readwrite("distance_variance_penalty",
+                     &ScanMatcherConfig::m_pDistanceVariancePenalty)
+      .def_readwrite("angle_variance_penalty",
+                     &ScanMatcherConfig::m_pAngleVariancePenalty)
+      .def_readwrite("minimum_distance_penalty",
+                     &ScanMatcherConfig::m_pMinimumDistancePenalty)
+      .def_readwrite("minimum_angle_penalty",
+                     &ScanMatcherConfig::m_pMinimumAnglePenalty)
+      .def_readwrite("use_response_expansion",
+                     &ScanMatcherConfig::m_pUseResponseExpansion)
+      .def_readwrite("search_size", &ScanMatcherConfig::searchSize)
+      .def_readwrite("resolution", &ScanMatcherConfig::resolution)
+      .def_readwrite("smear_deviation", &ScanMatcherConfig::smearDeviation)
+      .def_readwrite("range_threshold", &ScanMatcherConfig::rangeThreshold);
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;
