@@ -119,6 +119,7 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
                     &LocalizedRangeScan::SetOdometricPose)
       .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
                     &LocalizedRangeScan::SetCorrectedPose)
+      .def_property("num", &LocalizedRangeScan::GetStateId, &LocalizedRangeScan::SetStateId)
       .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector);
 
   py::class_<Wrapper>(m, "Wrapper")
