@@ -1,4 +1,4 @@
-
+from mp_slam_cpp import ScanMatcherConfig
 
 def print_config(config):
     for name in dir(config):
@@ -19,3 +19,13 @@ default_config = {
 }
 
 
+def make_config(d):
+    config = ScanMatcherConfig()
+    config_params = default_config.copy()
+    if d:
+        config_params.update(d)
+
+    for key, value in config_params.items():
+        config.__setattr__(key, value)
+
+    return config

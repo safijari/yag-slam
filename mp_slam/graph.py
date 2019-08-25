@@ -42,11 +42,11 @@ class Edge(object):
 
 class Graph(object):
     def __init__(self):
-        self.vertices = {}
+        self.vertices = []
         self.edges = []
 
     def add_vertex(self, name, vertex):
-        self.vertices[name] = vertex
+        self.vertices.append(vertex)
         # this is where a node is added to SBA?
 
     def add_edge(self, edge):
