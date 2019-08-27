@@ -45,7 +45,7 @@ class Graph(object):
         self.vertices = []
         self.edges = []
 
-    def add_vertex(self, name, vertex):
+    def add_vertex(self, vertex):
         self.vertices.append(vertex)
         # this is where a node is added to SBA?
 
