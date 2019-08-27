@@ -1,4 +1,6 @@
 from mp_slam_cpp import ScanMatcherConfig
+import math
+
 
 def print_config(config):
     for name in dir(config):
@@ -29,3 +31,13 @@ def make_config(d):
         config.__setattr__(key, value)
 
     return config
+
+
+def scans_dist_squared(scan1, scan2):
+    p1 = scan1.corrected_pose
+    p2 = scan2.corrected_pose
+    return (p1.x - p2.x)**2 + (p1.y - p2.y)**2
+
+
+def scans_dist(scan1, scan2):
+    return math.sqrt(scans_dist_squared(scan1, scan2))
