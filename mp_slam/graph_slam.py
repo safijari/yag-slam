@@ -1,9 +1,18 @@
-from .__init__ import print_config, default_config, make_config
+from .__init__ import print_config, default_config, make_config, scans_dist_squared
 
 from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig
 from uuid import uuid4
 from tiny_tf.tf import Transform
 from mp_slam.graph import Graph, Vertex, Edge, LinkLabel, do_breadth_first_traversal
+
+
+# The below violates encapsulation in the worst possible way
+def make_near_scan_visitor(distance):
+    distsq = distance**2
+    def near_scan_visitor(first_node, current_node):
+        ret = scans_dist_squared(first_node.obj, current_node.obj)
+        return ret < distsq
+    return near_scan_visitor
 
 
 class MPGraphSlam(object):
@@ -19,7 +28,7 @@ class MPGraphSlam(object):
 
         sensor_name = str(uuid4()) if not sensor_name else sensor_name
         self.seq_matcher = Wrapper(sensor_name + "seq", angular_res, angle_min, angle_max, make_config(config_dict_seq))
-        # self.loop_matcher = Wrapper(sensor_name + "loop", angular_res, angle_min, angle_max, make_config(config_dict_loop))
+        self.loop_matcher = Wrapper(sensor_name + "loop", angular_res, angle_min, angle_max, make_config(config_dict_loop))
 
         self.scan_buffer_len = scan_buffer_len
         self.scan_buffer_distance = scan_buffer_distance
@@ -73,9 +82,30 @@ class MPGraphSlam(object):
     def link_to_near_chains(self, ):
         raise NotImplementedError("might be needed for a more cohesive graph")
 
+    def try_to_close_loop(self, scan):
+        """
+        chains = FindPossibleLoopClosureChains
+        for chain in chains:
+          Do loop scan match and quit if coarse response too low or covar too high
+
+          make temp scan with corrected pose from loop scan match
+
+          Do seq match of temp scan against chain, quit if res....
+
+          set query scan's corrected pose, link to chain
+        """
+        pass
+
+    def find_possible_loop_closure_chains(self, scan, start_num=0):
+        """
+        nearLinkedScans = FindNearChains within loop search distance ("near scan visitor")
+
+        a) quickly just strip things down to "close enough scan chains" and
+        b) return the chains themselves the first time
+        """
+        pass
+
     def process_scan(self, scan, x, y, yaw, flip_ranges=True):
-
-
         query = self.seq_matcher.make_scan(self._ranges_from_scan(scan, flip_ranges), x, y, yaw)
 
         if len(self.running_scans) == 0:

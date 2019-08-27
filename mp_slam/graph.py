@@ -72,7 +72,7 @@ def do_breadth_first_traversal(start_vert, visit_fn, return_objs=True):
     seen_verts = set()
     valid_verts = []
 
-    to_visit.push(start_vert)
+    to_visit.append(start_vert)
     seen_verts.add(start_vert)
 
     while to_visit:
