@@ -1,10 +1,12 @@
-from .__init__ import print_config, default_config, make_config, scans_dist_squared
+from .__init__ import print_config, default_config, make_config, scans_dist_squared, default_config_loop
 
-from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig
+from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig, LocalizedRangeScan
 from uuid import uuid4
 from tiny_tf.tf import Transform
 from mp_slam.graph import Graph, Vertex, Edge, LinkLabel, do_breadth_first_traversal
-
+from sba_cpp import SPA2d
+import numpy as np
+import time
 
 # The below violates encapsulation in the worst possible way
 def make_near_scan_visitor(distance):
@@ -20,11 +22,13 @@ class MPGraphSlam(object):
                  angular_res,
                  angle_min,
                  angle_max,
-                 scan_buffer_len=5,
-                 scan_buffer_distance=5,
+                 scan_buffer_len=10,
+                 scan_buffer_distance=None,  # TODO
                  sensor_name=None,
-                 config_dict_seq=None,
-                 config_dict_loop=None):
+                 config_dict_seq=default_config,
+                 config_dict_loop=default_config_loop,
+                 loop_search_dist=3,
+                 loop_search_min_chain_size=10):
 
         sensor_name = str(uuid4()) if not sensor_name else sensor_name
         self.seq_matcher = Wrapper(sensor_name + "seq", angular_res, angle_min, angle_max, make_config(config_dict_seq))
@@ -34,7 +38,12 @@ class MPGraphSlam(object):
         self.scan_buffer_distance = scan_buffer_distance
         self.graph = Graph()
 
+        self.loop_search_dist = loop_search_dist
+        self.loop_search_min_chain_size = loop_search_min_chain_size
+        self.near_scan_visitor = make_near_scan_visitor(loop_search_dist)
+
         self.running_scans = []
+        self.opt = SPA2d()
 
     def _print_config(self):
         print_config(self.config)
@@ -50,7 +59,8 @@ class MPGraphSlam(object):
     def add_vertex(self, scan):
         vertex = Vertex(scan)
         self.graph.add_vertex(vertex)
-        # add to optimizer?
+        p = vertex.obj.corrected_pose
+        self.opt.add_node(p.x, p.y, p.yaw, vertex.obj.num)
 
     def add_edges(self, scan, covariance):
         """
@@ -69,15 +79,25 @@ class MPGraphSlam(object):
                 print("{} to {} already exists".format(from_scan.num, to_scan.num))
                 # Edge already exists, quit
                 return
-        new_edge = Edge(from_vert, to_vert, LinkLabel(from_scan.corrected_pose, mean, covariance))
+        diff = Transform.from_pose2d(to_scan.corrected_pose) - Transform.from_pose2d(from_scan.corrected_pose)
+        new_edge = Edge(from_vert, to_vert, LinkLabel(from_scan.corrected_pose, Pose2(diff.x, diff.y, diff.euler[-1]), covariance))
         self.graph.edges.append(new_edge)
 
-    def link_to_closest_scan(self, others, this):
+        src = from_vert.obj
+        tgt = to_vert.obj
+        diff = new_edge.info.mean
+        self.opt.add_constraint(src.num, tgt.num, diff.x, diff.y, diff.yaw, np.linalg.inv(np.array(new_edge.info.covariance)).tolist())
+
+    def link_to_closest_scan_in_chain(self, scan, chain, mean, covariance):
         """
         find closest scan
         link to it
         """
-        raise NotImplementedError("might be needed for a more cohesive graph")
+        tmp_chain = [c for c in chain]
+        tmp_chain.sort(key=lambda x: scans_dist_squared(x, scan))
+        closest_scan = tmp_chain[0]
+        # TODO check distance first?
+        self.link_scans(closest_scan, scan, mean, covariance)
 
     def link_to_near_chains(self, ):
         raise NotImplementedError("might be needed for a more cohesive graph")
@@ -94,16 +114,80 @@ class MPGraphSlam(object):
 
           set query scan's corrected pose, link to chain
         """
-        pass
+        chains = self.find_possible_loop_closure_chains(scan)
 
-    def find_possible_loop_closure_chains(self, scan, start_num=0):
+        if len(chains) > 0:
+            print("ooh chains")
+
+        closed = False
+
+        for chain in chains:
+            # coarse
+            res = self.loop_matcher.match_scan(scan, chain, True, False)
+            # resp 0.35 for coarse, 0.4 for fine?
+            # covar 3.0 for coarse?????
+            if res.response < 0.3:
+                print("not good coarse response")
+                continue
+
+            if res.covariance[0][0] > 3.0 or res.covariance[1][1] > 3.0:
+                print("WARN: covariance too high for coarse")
+
+            p = scan.corrected_pose
+            tmpscan = self.seq_matcher.make_scan(scan.ranges, p.x, p.y, p.yaw)
+
+            res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
+
+            if res.response < 0.55:
+                print("not good fine response")
+                continue
+
+            scan.corrected_pose = res.best_pose
+
+            self.link_to_closest_scan_in_chain(scan, chain, res.best_pose, res.covariance)
+
+            closed = True
+
+        if closed:
+            print("successful loop closure")
+            begin = time.time()
+            self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
+            print("opt took {} seconds".format(time.time()-begin))
+
+            for node, vtx in zip(self.opt.nodes, self.graph.vertices):
+                vtx.obj.corrected_pose = Pose2(node.x, node.y, node.yaw)
+
+        return
+
+    def find_possible_loop_closure_chains(self, scan):
         """
         nearLinkedScans = FindNearChains within loop search distance ("near scan visitor")
 
         a) quickly just strip things down to "close enough scan chains" and
         b) return the chains themselves the first time
         """
-        pass
+        vert = self.graph.vertices[scan.num]
+        near_linked_verts = set(do_breadth_first_traversal(vert, self.near_scan_visitor))
+        # The below is a reimplementation of the dumb Karto method for finding chains, needs to be rewritten
+        chains = []
+        current_chain = []
+        for vert in self.graph.vertices:
+            other_scan = vert.obj
+            if other_scan == scan or other_scan in near_linked_verts:
+                current_chain = []
+                continue
+
+            if scans_dist_squared(scan, other_scan) <= self.loop_search_dist:
+                current_chain.append(other_scan)
+
+            if len(current_chain) >= self.loop_search_min_chain_size:
+                chains.append(current_chain)
+                current_chain = []
+
+        if current_chain:
+            chains.append(current_chain)
+
+        return chains
 
     def process_scan(self, scan, x, y, yaw, flip_ranges=True):
         query = self.seq_matcher.make_scan(self._ranges_from_scan(scan, flip_ranges), x, y, yaw)
@@ -125,12 +209,14 @@ class MPGraphSlam(object):
 
         query.set_corrected_pose(Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
 
-        res = self.seq_matcher.match_scan(query, self.running_scans)
+        res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
         query.set_corrected_pose(res.best_pose)
 
         # add to graph
         self.add_vertex(query)
         self.add_edges(query, res.covariance)
+
+        self.try_to_close_loop(query)
 
         self.running_scans.append(query)
         self.running_scans = self.running_scans[-self.scan_buffer_len:]

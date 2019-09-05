@@ -56,11 +56,11 @@ public:
   }
 
   MatchResult MatchScan(LocalizedRangeScan *query,
-                        const LocalizedRangeScanVector &base) {
+                        const LocalizedRangeScanVector &base, bool penalize=true, bool refine=true) {
     Pose2 mean;
     Matrix3 covariance;
 
-    auto ret = this->matcher->MatchScan(query, base, mean, covariance);
+    auto ret = this->matcher->MatchScan(query, base, mean, covariance, penalize, refine);
 
     return MatchResult{mean, covariance, ret};
   }
