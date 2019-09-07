@@ -7,10 +7,11 @@ What I need:
 
 
 class LinkLabel(object):
-    def __init__(self, pose, mean, covariance):
+    def __init__(self, pose, mean, covariance, supl=None):
         self.pose = pose
         self.mean = mean
         self.covariance = covariance
+        self.supl = supl
 
 
 class Vertex(object):
