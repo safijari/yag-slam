@@ -1,4 +1,4 @@
-from .__init__ import print_config, default_config, make_config, scans_dist_squared, default_config_loop
+from .__init__ import print_config, default_config, make_config, scans_dist_squared, default_config_loop, RadiusHashSearch
 
 from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig, LocalizedRangeScan
 from uuid import uuid4
@@ -28,11 +28,15 @@ class MPGraphSlam(object):
                  config_dict_seq=default_config,
                  config_dict_loop=default_config_loop,
                  loop_search_dist=3,
-                 loop_search_min_chain_size=10):
+                 loop_search_min_chain_size=10,
+                 min_response_coarse=0.35,
+                 min_response_fine=0.45):
 
         sensor_name = str(uuid4()) if not sensor_name else sensor_name
         self.seq_matcher = Wrapper(sensor_name + "seq", angular_res, angle_min, angle_max, make_config(config_dict_seq))
+        # self.seq_matcher.range_finder.set_offset_pose(Pose2(0.048, 0, 0))
         self.loop_matcher = Wrapper(sensor_name + "loop", angular_res, angle_min, angle_max, make_config(config_dict_loop))
+        # self.loop_matcher.range_finder.set_offset_pose(Pose2(0.048, 0, 0))
 
         self.scan_buffer_len = scan_buffer_len
         self.scan_buffer_distance = scan_buffer_distance
@@ -44,6 +48,10 @@ class MPGraphSlam(object):
 
         self.running_scans = []
         self.opt = SPA2d()
+
+        self.search = RadiusHashSearch([], res=self.loop_search_dist)
+        self.min_response_coarse = min_response_coarse
+        self.min_response_fine = min_response_fine
 
     def _print_config(self):
         print_config(self.config)
@@ -61,6 +69,7 @@ class MPGraphSlam(object):
         self.graph.add_vertex(vertex)
         p = vertex.obj.corrected_pose
         self.opt.add_node(p.x, p.y, p.yaw, vertex.obj.num)
+        self.search.add_new_element(vertex)
 
     def add_edges(self, scan, covariance):
         """
@@ -70,17 +79,18 @@ class MPGraphSlam(object):
         """
         last_scan = self.running_scans[-1]
         self.link_scans(last_scan, scan, scan.corrected_pose, covariance)
+        self.link_to_closest_scan_in_chain(scan, self.running_scans, scan.corrected_pose, covariance)
 
-    def link_scans(self, from_scan, to_scan, mean, covariance):
+    def link_scans(self, from_scan, to_scan, mean, covariance, supl=None):
         to_vert = self.graph.vertices[to_scan.num]
         from_vert = self.graph.vertices[from_scan.num]
         for edge in from_vert.edges:
             if edge.target == to_vert:
-                print("{} to {} already exists".format(from_scan.num, to_scan.num))
+                # print("{} to {} already exists".format(from_scan.num, to_scan.num))
                 # Edge already exists, quit
                 return
         diff = Transform.from_pose2d(to_scan.corrected_pose) - Transform.from_pose2d(from_scan.corrected_pose)
-        new_edge = Edge(from_vert, to_vert, LinkLabel(from_scan.corrected_pose, Pose2(diff.x, diff.y, diff.euler[-1]), covariance))
+        new_edge = Edge(from_vert, to_vert, LinkLabel(from_scan.corrected_pose, Pose2(diff.x, diff.y, diff.euler[-1]), covariance, supl))
         self.graph.edges.append(new_edge)
 
         src = from_vert.obj
@@ -88,7 +98,7 @@ class MPGraphSlam(object):
         diff = new_edge.info.mean
         self.opt.add_constraint(src.num, tgt.num, diff.x, diff.y, diff.yaw, np.linalg.inv(np.array(new_edge.info.covariance)).tolist())
 
-    def link_to_closest_scan_in_chain(self, scan, chain, mean, covariance):
+    def link_to_closest_scan_in_chain(self, scan, chain, mean, covariance, supl=None):
         """
         find closest scan
         link to it
@@ -97,7 +107,7 @@ class MPGraphSlam(object):
         tmp_chain.sort(key=lambda x: scans_dist_squared(x, scan))
         closest_scan = tmp_chain[0]
         # TODO check distance first?
-        self.link_scans(closest_scan, scan, mean, covariance)
+        self.link_scans(closest_scan, scan, mean, covariance, supl)
 
     def link_to_near_chains(self, ):
         raise NotImplementedError("might be needed for a more cohesive graph")
@@ -123,28 +133,28 @@ class MPGraphSlam(object):
 
         for chain in chains:
             # coarse
-            res = self.loop_matcher.match_scan(scan, chain, True, False)
+            res_coarse = self.loop_matcher.match_scan(scan, chain, False, False)
             # resp 0.35 for coarse, 0.4 for fine?
             # covar 3.0 for coarse?????
-            if res.response < 0.3:
-                print("not good coarse response")
+            if res_coarse.response < self.min_response_coarse:
+                print("not good coarse response {}".format(res_coarse.response))
                 continue
 
-            if res.covariance[0][0] > 3.0 or res.covariance[1][1] > 3.0:
+            if res_coarse.covariance[0][0] > 3.0 or res_coarse.covariance[1][1] > 3.0:
                 print("WARN: covariance too high for coarse")
 
-            p = scan.corrected_pose
+            p = res_coarse.best_pose
             tmpscan = self.seq_matcher.make_scan(scan.ranges, p.x, p.y, p.yaw)
 
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
-            if res.response < 0.55:
-                print("not good fine response")
+            if res.response < self.min_response_fine:
+                print("not good fine response {}".format(res.response))
                 continue
 
             scan.corrected_pose = res.best_pose
 
-            self.link_to_closest_scan_in_chain(scan, chain, res.best_pose, res.covariance)
+            self.link_to_closest_scan_in_chain(scan, chain, res.best_pose, res.covariance, supl={'coarse': res_coarse, 'fine': res})
 
             closed = True
 
@@ -157,22 +167,22 @@ class MPGraphSlam(object):
             for node, vtx in zip(self.opt.nodes, self.graph.vertices):
                 vtx.obj.corrected_pose = Pose2(node.x, node.y, node.yaw)
 
-        return
+            self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
+
+        return closed
 
     def find_possible_loop_closure_chains(self, scan):
-        """
-        nearLinkedScans = FindNearChains within loop search distance ("near scan visitor")
-
-        a) quickly just strip things down to "close enough scan chains" and
-        b) return the chains themselves the first time
-        """
         vert = self.graph.vertices[scan.num]
         near_linked_verts = set(do_breadth_first_traversal(vert, self.near_scan_visitor))
         # The below is a reimplementation of the dumb Karto method for finding chains, needs to be rewritten
         chains = []
+
+        vertices = self.search.crude_radius_search(scan.corrected_pose, self.loop_search_dist)
+        vertices.sort(key=lambda v: v.obj.num)
+
         current_chain = []
-        for vert in self.graph.vertices:
-            other_scan = vert.obj
+        for v1, v2 in zip(vertices, vertices[1:]):
+            other_scan = v1.obj
             if other_scan == scan or other_scan in near_linked_verts:
                 current_chain = []
                 continue
@@ -182,6 +192,9 @@ class MPGraphSlam(object):
 
             if len(current_chain) >= self.loop_search_min_chain_size:
                 chains.append(current_chain)
+                current_chain = []
+
+            if (v2.obj.num - v1.obj.num) > 1:
                 current_chain = []
 
         if current_chain:
@@ -196,7 +209,7 @@ class MPGraphSlam(object):
             query.num = 0
             self.running_scans.append(query)
             self.add_vertex(query)
-            return
+            return None, None
 
         last_scan = self.running_scans[-1]
         query.num = last_scan.num + 1
@@ -216,9 +229,10 @@ class MPGraphSlam(object):
         self.add_vertex(query)
         self.add_edges(query, res.covariance)
 
-        self.try_to_close_loop(query)
+        closed = self.try_to_close_loop(query)
+        # closed = False
 
         self.running_scans.append(query)
         self.running_scans = self.running_scans[-self.scan_buffer_len:]
 
-        return res
+        return res, closed
