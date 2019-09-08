@@ -3,7 +3,7 @@
 #include <pybind11/stl.h>
 #include <vector>
 
-#include "LocalizedRangeScanAndFinder.h"
+#include "LocalizedRangeScan.h"
 #include "ScanMatcher.h"
 #include "SensorManager.h"
 
@@ -14,41 +14,32 @@ struct MatchResult {
 };
 
 class Wrapper {
-  LaserRangeFinder *rangeFinder;
   Name name;
   ScanMatcher *matcher;
-  // SensorManager *sensor_manager;
 
 public:
   Wrapper(std::string sensorName, double angularResolution, double angleMin,
           double angleMax, std::shared_ptr<ScanMatcherConfig> config) {
 
     this->name = Name(sensorName);
-    this->rangeFinder = new LaserRangeFinder(this->name);
-    this->rangeFinder->SetAngularResolution(angularResolution);
-    this->rangeFinder->SetMinimumAngle(angleMin);
-    this->rangeFinder->SetMaximumAngle(angleMax);
-    this->rangeFinder->Update();
-    SensorManager::GetInstance()->RegisterSensor(this->rangeFinder);
     this->matcher = ScanMatcher::Create(config);
   }
 
-  LaserRangeFinder *getRangeFinder() { return this->rangeFinder; }
-
   Name getName() { return this->name; }
 
-  bool ProcessLocalizedRangeScan(std::vector<double> ranges, double x, double y,
+  // TODO replace below with a constructor
+  bool ProcessLocalizedRangeScan(LaserScanConfig config, std::vector<double> ranges, double x, double y,
                                  double heading) {
-    auto scan = new LocalizedRangeScan(this->name, ranges);
+    auto scan = new LocalizedRangeScan(config, ranges);
     scan->SetOdometricPose(Pose2(x, y, heading));
     scan->SetCorrectedPose(Pose2(x, y, heading));
 
     return true;
   }
 
-  LocalizedRangeScan *MakeScan(std::vector<double> ranges, double x, double y,
+  LocalizedRangeScan *MakeScan(LaserScanConfig config, std::vector<double> ranges, double x, double y,
                                double yaw) {
-    auto scan = new LocalizedRangeScan(this->name, ranges);
+    auto scan = new LocalizedRangeScan(config, ranges);
     scan->SetOdometricPose(Pose2(x, y, yaw));
     scan->SetCorrectedPose(Pose2(x, y, yaw));
 
@@ -66,7 +57,6 @@ public:
   }
 
   ~Wrapper() {
-    delete this->rangeFinder;
     delete this->matcher;
   }
 };
@@ -98,19 +88,8 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
 
   py::class_<Name>(m, "Name").def(py::init<const std::string &>());
 
-  py::class_<LaserRangeFinder>(m, "LaserRangeFinder")
-      .def(py::init<std::string &>())
-      .def("set_offset_pose", &LaserRangeFinder::SetOffsetPose)
-      .def("set_angular_resolution", &LaserRangeFinder::SetAngularResolution)
-      .def("set_minimum_range", &LaserRangeFinder::SetMinimumRange)
-      .def("set_minimum_angle", &LaserRangeFinder::SetMinimumAngle)
-      .def("set_maximum_range", &LaserRangeFinder::SetMaximumRange)
-      .def("set_maximum_angle", &LaserRangeFinder::SetMaximumAngle)
-      .def("set_angular_resolution", &LaserRangeFinder::SetAngularResolution)
-      .def("set_range_threshold", &LaserRangeFinder::SetRangeThreshold);
-
   py::class_<LocalizedRangeScan>(m, "LocalizedRangeScan")
-      .def(py::init<Name, std::vector<double>>())
+      .def(py::init<LaserScanConfig, std::vector<double>>())
       .def("set_odometric_pose", &LocalizedRangeScan::SetOdometricPose)
       .def("get_odometric_pose", &LocalizedRangeScan::GetOdometricPose)
       .def("set_corrected_pose", &LocalizedRangeScan::SetCorrectedPose)
@@ -120,7 +99,8 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
       .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
                     &LocalizedRangeScan::SetCorrectedPose)
       .def_property("num", &LocalizedRangeScan::GetStateId, &LocalizedRangeScan::SetStateId)
-      .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector);
+      .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector)
+    .def_property_readonly("name", &LocalizedRangeScan::GetSensorName);
 
   py::class_<Wrapper>(m, "Wrapper")
       .def(py::init<std::string, double, double, double,
@@ -129,8 +109,7 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
       .def("make_scan", &Wrapper::MakeScan, py::return_value_policy::reference)
       .def("match_scan", &Wrapper::MatchScan,
            py::return_value_policy::reference)
-      .def_property_readonly("name", &Wrapper::getName)
-      .def_property_readonly("range_finder", &Wrapper::getRangeFinder);
+    .def_property_readonly("name", &Wrapper::getName);
 
   py::class_<MatchResult>(m, "MatchResult")
       .def_readwrite("best_pose", &MatchResult::best_pose)
@@ -171,6 +150,18 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
       .def_readwrite("resolution", &ScanMatcherConfig::resolution)
       .def_readwrite("smear_deviation", &ScanMatcherConfig::smearDeviation)
       .def_readwrite("range_threshold", &ScanMatcherConfig::rangeThreshold);
+
+      py::class_<LaserScanConfig, std::shared_ptr<LaserScanConfig>>(m, "LaserScanConfig")
+        .def(py::init<double, double, double, double, double, double, std::string>())
+        .def_readonly("min_angle", &LaserScanConfig::minAngle)
+        .def_readonly("max_angle", &LaserScanConfig::maxAngle)
+        .def_readonly("angular_resolution", &LaserScanConfig::angularResolution)
+        .def_readonly("min_range", &LaserScanConfig::minRange)
+        .def_readonly("min_range", &LaserScanConfig::maxRange)
+        .def_readonly("min_angle", &LaserScanConfig::minAngle)
+        .def_readonly("range_threshold", &LaserScanConfig::rangeThreshold)
+        .def_readonly("sensor_name", &LaserScanConfig::sensorName)
+        ;
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;
