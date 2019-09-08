@@ -56,11 +56,11 @@ public:
   }
 
   MatchResult MatchScan(LocalizedRangeScan *query,
-                        const LocalizedRangeScanVector &base) {
+                        const LocalizedRangeScanVector &base, bool penalize=true, bool refine=true) {
     Pose2 mean;
     Matrix3 covariance;
 
-    auto ret = this->matcher->MatchScan(query, base, mean, covariance);
+    auto ret = this->matcher->MatchScan(query, base, mean, covariance, penalize, refine);
 
     return MatchResult{mean, covariance, ret};
   }
@@ -119,6 +119,7 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
                     &LocalizedRangeScan::SetOdometricPose)
       .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
                     &LocalizedRangeScan::SetCorrectedPose)
+      .def_property("num", &LocalizedRangeScan::GetStateId, &LocalizedRangeScan::SetStateId)
       .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector);
 
   py::class_<Wrapper>(m, "Wrapper")
