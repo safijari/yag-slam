@@ -28,15 +28,15 @@ public:
     m_pCoarseAngleResolution(0.03490658503988659),
     m_pCoarseSearchAngleOffset(0.3490658503988659),
     m_pFineSearchAngleOffset(0.003490658503988659),
-    m_pDistanceVariancePenalty(0.3),
+    m_pDistanceVariancePenalty(0.5),
     m_pAngleVariancePenalty(0.3490658503988659),
-    m_pMinimumDistancePenalty(0.5),
+    m_pMinimumDistancePenalty(1.0),
     m_pMinimumAnglePenalty(0.9),
     m_pUseResponseExpansion(true),
     searchSize(0.3),
     resolution(0.01),
     smearDeviation(0.03),
-    rangeThreshold(12)
+    rangeThreshold(40)
   {
   }
 

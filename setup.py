@@ -17,6 +17,7 @@ setup(
     description='',
     long_description='',
     packages=find_packages(),
+    install_requires=['sparse_bundle_adjustment', 'numpy', 'tiny_tf'],
     setup_requires=['pybind11_cmake'],
     ext_modules=[CMakeExtension('mp_slam_cpp')],
     cmdclass=dict(build_ext=CMakeBuild),

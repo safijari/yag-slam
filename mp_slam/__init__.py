@@ -1,6 +1,6 @@
-from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig
-from uuid import uuid4
-from tiny_tf.tf import Transform
+from mp_slam_cpp import ScanMatcherConfig
+import math
+from collections import namedtuple
 
 
 def print_config(config):
@@ -13,77 +13,92 @@ def print_config(config):
 default_config = {
     "angle_variance_penalty": 1.0,
     "distance_variance_penalty": 0.5,
-    "coarse_search_angle_offset": 0.5,
+    "coarse_search_angle_offset": 0.349,
+    "coarse_angle_resolution": 0.0349,
+    "fine_search_angle_offset": 0.00349,
     "use_response_expansion": True,
-    "range_threshold": 20,
-    "minimum_angle_penalty": 1.5,
+    "range_threshold": 55,
+    "minimum_angle_penalty": 0.9,
     "search_size": 0.5,
+    "resolution": 0.01,
     "smear_deviation": 0.1,
 }
 
+default_config_loop = {
+    "angle_variance_penalty": 1.0,
+    "distance_variance_penalty": 0.5,
+    "coarse_search_angle_offset": 0.349,
+    "coarse_angle_resolution": 0.0349,
+    "fine_search_angle_offset": 0.00349,
+    "use_response_expansion": True,
+    "range_threshold": 55,
+    "minimum_angle_penalty": 0.9,
+    "resolution": 0.05,
+    "search_size": 8.0,
+    "smear_deviation": 0.03,
+}
 
-class MPScanMatcher(object):
-    def __init__(self,
-                 angular_res,
-                 angle_min,
-                 angle_max,
-                 scan_buffer_len=20,
-                 scan_buffer_distance=None,
-                 sensor_name=None,
-                 config_dict=None):
-        self.config = ScanMatcherConfig()
-        config_params = default_config.copy()
-        if config_dict:
-            config_params.update(config_dict)
 
-        for key, value in config_params.items():
-            self.config.__setattr__(key, value)
+def make_config(d):
+    config = ScanMatcherConfig()
+    config_params = default_config.copy()
+    if d:
+        config_params.update(d)
 
-        sensor_name = str(uuid4()) if not sensor_name else sensor_name
-        self.matcher = Wrapper(sensor_name, angular_res, angle_min, angle_max, self.config)
+    for key, value in config_params.items():
+        config.__setattr__(key, value)
 
-        self.scan_buffer_len = scan_buffer_len
-        self.scan_buffer_distance = scan_buffer_distance
+    return config
 
-        self.current_shift = Transform(0, 0, 0, 0, 0, 0, 1).matrix
 
-        self.recent_scans = []
+def poses_dist_squared(p1, p2):
+    return (p1.x - p2.x)**2 + (p1.y - p2.y)**2
 
-    def _print_config(self):
-        print_config(self.config)
 
-    def _ranges_from_scan(self, scan, flip_ranges):
-        ranges = scan['ranges'] if isinstance(scan, dict) else scan.ranges
+def scans_dist_squared(scan1, scan2):
+    p1 = scan1.corrected_pose
+    p2 = scan2.corrected_pose
+    return (p1.x - p2.x)**2 + (p1.y - p2.y)**2
 
-        if flip_ranges:
-            ranges = ranges[::-1]
 
-        return ranges
+def scans_dist(scan1, scan2):
+    return math.sqrt(scans_dist_squared(scan1, scan2))
 
-    def process_scan(self, scan, x, y, yaw, flip_ranges=True):
-        query = self.matcher.make_scan(self._ranges_from_scan(scan, flip_ranges), x, y, yaw)
-        if len(self.recent_scans) == 0:
-            self.recent_scans.append(query)
-            return
+Pose2 = namedtuple('Pose2', ['x', 'y'])
 
-        last_scan = self.recent_scans[-1]
+class RadiusHashSearch(object):
+    def __init__(self, elements, accessor=lambda v: v.obj.corrected_pose, res=1.0):
+        self.res = res
+        self.hmap = {}
+        self.accessor = accessor
 
-        odom_diff = (Transform.from_pose2d(query.get_odometric_pose()) -
-                     Transform.from_pose2d(last_scan.get_odometric_pose()))
+        for el in elements:
+            self.add_new_element(el)
 
-        sm_correction = Transform.from_pose2d(last_scan.get_corrected_pose()) + odom_diff
+    def pose_to_key(self, p):
+        # return f"{int(p.x/self.res)}_{int(p.y/self.res)}"
+        return (int(p.x/self.res), int(p.y/self.res))
 
-        query.set_corrected_pose(Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
+    def key_to_pose(self, key):
+        # x, y = key.split('_')
+        x, y = key
+        return Pose2(float(x)*self.res, float(y)*self.res)
 
-        # res contains res.response (0 to 1, 1 being best),
-        # res.covariance (3x3 matrix, 1,1 is x cov, 2,2 is ycov, 3,3 is theta cov),
-        # and res.best_pose (x, y, yaw) which is pose with largest response
-        res = self.matcher.match_scan(query, self.recent_scans)
+    def add_new_element(self, element):
+        key = self.pose_to_key(self.accessor(element))
+        if key not in self.hmap:
+            self.hmap[key] = []
+        self.hmap[key].append(element)
 
-        # This could maybe not be done if the response is too low
-        query.set_corrected_pose(res.best_pose)
+    def crude_radius_search(self, start_pose, radius):
+        """
+        returns all boxes around the start_pose that are within radius + 2*res
+        """
+        r2 = (radius + self.res)**2
+        all_elements = []
+        for key, elements in self.hmap.items():
+            pose = self.key_to_pose(key)
+            if poses_dist_squared(pose, start_pose) < r2:
+                all_elements.extend(elements)
 
-        self.recent_scans.append(query)
-        self.recent_scans = self.recent_scans[-self.scan_buffer_len:]
-
-        return res
+        return all_elements
