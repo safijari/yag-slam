@@ -21,9 +21,7 @@ def make_near_scan_visitor(distance):
 
 class MPGraphSlam(object):
     def __init__(self,
-                 angular_res,
-                 angle_min,
-                 angle_max,
+                 config,
                  scan_buffer_len=10,
                  scan_buffer_distance=None,  # TODO
                  sensor_name=None,
@@ -35,8 +33,9 @@ class MPGraphSlam(object):
                  min_response_fine=0.45):
 
         sensor_name = str(uuid4()) if not sensor_name else sensor_name
-        self.seq_matcher = Wrapper(sensor_name + "seq", angular_res, angle_min, angle_max, make_config(config_dict_seq))
-        self.loop_matcher = Wrapper(sensor_name + "loop", angular_res, angle_min, angle_max, make_config(config_dict_loop))
+        self.scan_config = config
+        self.seq_matcher = Wrapper(make_config(config_dict_seq))
+        self.loop_matcher = Wrapper(make_config(config_dict_loop))
 
         self.scan_buffer_len = scan_buffer_len
         self.scan_buffer_distance = scan_buffer_distance
@@ -144,7 +143,7 @@ class MPGraphSlam(object):
                 print("WARN: covariance too high for coarse")
 
             p = res_coarse.best_pose
-            tmpscan = self.seq_matcher.make_scan(scan.ranges, p.x, p.y, p.yaw)
+            tmpscan = self.seq_matcher.make_scan(self.scan_config, scan.ranges, p.x, p.y, p.yaw)
 
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
@@ -203,7 +202,7 @@ class MPGraphSlam(object):
         return chains
 
     def process_scan(self, scan, x, y, yaw, flip_ranges=True):
-        query = self.seq_matcher.make_scan(self._ranges_from_scan(scan, flip_ranges), x, y, yaw)
+        query = self.seq_matcher.make_scan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), x, y, yaw)
 
         if len(self.running_scans) == 0:
             query.num = 0
