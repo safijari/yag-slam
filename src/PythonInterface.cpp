@@ -18,23 +18,9 @@ class Wrapper {
   ScanMatcher *matcher;
 
 public:
-  Wrapper(std::string sensorName, double angularResolution, double angleMin,
-          double angleMax, std::shared_ptr<ScanMatcherConfig> config) {
+  Wrapper(std::shared_ptr<ScanMatcherConfig> config) {
 
-    this->name = Name(sensorName);
     this->matcher = ScanMatcher::Create(config);
-  }
-
-  Name getName() { return this->name; }
-
-  // TODO replace below with a constructor
-  bool ProcessLocalizedRangeScan(LaserScanConfig config, std::vector<double> ranges, double x, double y,
-                                 double heading) {
-    auto scan = new LocalizedRangeScan(config, ranges);
-    scan->SetOdometricPose(Pose2(x, y, heading));
-    scan->SetCorrectedPose(Pose2(x, y, heading));
-
-    return true;
   }
 
   LocalizedRangeScan *MakeScan(LaserScanConfig config, std::vector<double> ranges, double x, double y,
@@ -100,16 +86,14 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
                     &LocalizedRangeScan::SetCorrectedPose)
       .def_property("num", &LocalizedRangeScan::GetStateId, &LocalizedRangeScan::SetStateId)
       .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector)
-    .def_property_readonly("name", &LocalizedRangeScan::GetSensorName);
+    .def_property_readonly("name", &LocalizedRangeScan::GetSensorName)
+    .def_readonly("config", &LocalizedRangeScan::config);
 
   py::class_<Wrapper>(m, "Wrapper")
-      .def(py::init<std::string, double, double, double,
-                    std::shared_ptr<ScanMatcherConfig>>())
-      .def("process_scan", &Wrapper::ProcessLocalizedRangeScan)
+      .def(py::init<std::shared_ptr<ScanMatcherConfig>>())
       .def("make_scan", &Wrapper::MakeScan, py::return_value_policy::reference)
       .def("match_scan", &Wrapper::MatchScan,
-           py::return_value_policy::reference)
-    .def_property_readonly("name", &Wrapper::getName);
+           py::return_value_policy::reference);
 
   py::class_<MatchResult>(m, "MatchResult")
       .def_readwrite("best_pose", &MatchResult::best_pose)
@@ -160,8 +144,7 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
         .def_readonly("min_range", &LaserScanConfig::maxRange)
         .def_readonly("min_angle", &LaserScanConfig::minAngle)
         .def_readonly("range_threshold", &LaserScanConfig::rangeThreshold)
-        .def_readonly("sensor_name", &LaserScanConfig::sensorName)
-        ;
+        .def_readonly("sensor_name", &LaserScanConfig::sensorName);
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;
