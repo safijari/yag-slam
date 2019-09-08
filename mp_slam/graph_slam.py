@@ -1,6 +1,8 @@
 from .__init__ import print_config, default_config, make_config, scans_dist_squared, default_config_loop, RadiusHashSearch
 
-from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig, LocalizedRangeScan
+from mp_slam.cpp import Pose2
+
+from mp_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan
 from uuid import uuid4
 from tiny_tf.tf import Transform
 from mp_slam.graph import Graph, Vertex, Edge, LinkLabel, do_breadth_first_traversal
@@ -34,9 +36,7 @@ class MPGraphSlam(object):
 
         sensor_name = str(uuid4()) if not sensor_name else sensor_name
         self.seq_matcher = Wrapper(sensor_name + "seq", angular_res, angle_min, angle_max, make_config(config_dict_seq))
-        # self.seq_matcher.range_finder.set_offset_pose(Pose2(0.048, 0, 0))
         self.loop_matcher = Wrapper(sensor_name + "loop", angular_res, angle_min, angle_max, make_config(config_dict_loop))
-        # self.loop_matcher.range_finder.set_offset_pose(Pose2(0.048, 0, 0))
 
         self.scan_buffer_len = scan_buffer_len
         self.scan_buffer_distance = scan_buffer_distance
