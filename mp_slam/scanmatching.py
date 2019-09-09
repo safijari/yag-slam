@@ -1,8 +1,6 @@
 from .__init__ import print_config, default_config
 
-from mp_slam.cpp import Pose2
-
-from mp_slam_cpp import Wrapper, ScanMatcherConfig
+from mp_slam_cpp import Wrapper, ScanMatcherConfig, Pose2
 from uuid import uuid4
 from tiny_tf.tf import Transform
 
