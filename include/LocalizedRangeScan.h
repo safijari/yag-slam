@@ -176,8 +176,14 @@ public:
    * readings
    */
   LocalizedRangeScan(const LaserScanConfig &_config,
-                     const RangeReadingsVector &rReadings)
-      : LaserRangeScan(_config, rReadings), m_IsDirty(true) {}
+                     const RangeReadingsVector &rReadings,
+                     Pose2 _odomPose, Pose2 _correctedPose, uint32_t _uniqueId, double _scanTime)
+      : LaserRangeScan(_config, rReadings), m_IsDirty(true) {
+    SetOdometricPose(_odomPose);
+    SetCorrectedPose(_correctedPose);
+    SetUniqueId(_uniqueId);
+    SetTime(_scanTime);
+  }
 
   /**
    * Destructor
