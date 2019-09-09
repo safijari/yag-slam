@@ -24,10 +24,7 @@ public:
 
   LocalizedRangeScan *MakeScan(LaserScanConfig config, std::vector<double> ranges, double x, double y,
                                double yaw) {
-    auto scan = new LocalizedRangeScan(config, ranges);
-    scan->SetOdometricPose(Pose2(x, y, yaw));
-    scan->SetCorrectedPose(Pose2(x, y, yaw));
-
+    auto scan = new LocalizedRangeScan(config, ranges, Pose2(x, y, yaw), Pose2(x, y, yaw), 0, 0.0);
     return scan;
   }
 
@@ -74,23 +71,18 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
   py::class_<Name>(m, "Name").def(py::init<const std::string &>());
 
   py::class_<LocalizedRangeScan>(m, "LocalizedRangeScan")
-      .def(py::init<LaserScanConfig, std::vector<double>>())
-      .def("set_odometric_pose", &LocalizedRangeScan::SetOdometricPose)
-      .def("get_odometric_pose", &LocalizedRangeScan::GetOdometricPose)
-      .def("set_corrected_pose", &LocalizedRangeScan::SetCorrectedPose)
-      .def("get_corrected_pose", &LocalizedRangeScan::GetCorrectedPose)
-      .def_property("odom_pose", &LocalizedRangeScan::GetOdometricPose,
-                    &LocalizedRangeScan::SetOdometricPose)
-      .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
-                    &LocalizedRangeScan::SetCorrectedPose)
-      .def_property("num", &LocalizedRangeScan::GetStateId, &LocalizedRangeScan::SetStateId)
-      .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector)
-    .def_property_readonly("name", &LocalizedRangeScan::GetSensorName)
-    .def_readonly("config", &LocalizedRangeScan::config);
+    .def(py::init<LaserScanConfig, std::vector<double>, Pose2, Pose2, uint32_t, double>())
+    .def_readonly("config", &LocalizedRangeScan::config)
+    .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector)
+    .def_property("odom_pose", &LocalizedRangeScan::GetOdometricPose,
+                  &LocalizedRangeScan::SetOdometricPose)
+    .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
+                  &LocalizedRangeScan::SetCorrectedPose)
+    .def_property("num", &LocalizedRangeScan::GetStateId, &LocalizedRangeScan::SetStateId)
+    .def_property("time", &LocalizedRangeScan::GetTime, &LocalizedRangeScan::SetTime);
 
   py::class_<Wrapper>(m, "Wrapper")
       .def(py::init<std::shared_ptr<ScanMatcherConfig>>())
-      .def("make_scan", &Wrapper::MakeScan, py::return_value_policy::reference)
       .def("match_scan", &Wrapper::MatchScan,
            py::return_value_policy::reference);
 

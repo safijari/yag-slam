@@ -141,7 +141,7 @@ class MPGraphSlam(object):
                 print("WARN: covariance too high for coarse")
 
             p = res_coarse.best_pose
-            tmpscan = self.seq_matcher.make_scan(self.scan_config, scan.ranges, p.x, p.y, p.yaw)
+            tmpscan = LocalizedRangeScan(self.scan_config, scan.ranges, Pose2(p.x, p.y, p.yaw), Pose2(p.x, p.y, p.yaw), scan.num, scan.time)
 
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
@@ -200,7 +200,8 @@ class MPGraphSlam(object):
         return chains
 
     def process_scan(self, scan, x, y, yaw, flip_ranges=True):
-        query = self.seq_matcher.make_scan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), x, y, yaw)
+        query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges),
+                                   Pose2(x, y, yaw), Pose2(x, y, yaw), 0, 0.0)
 
         if len(self.running_scans) == 0:
             query.num = 0
@@ -213,14 +214,14 @@ class MPGraphSlam(object):
         # Initialize starting location for matching
 
         odom_diff = (
-            Transform.from_pose2d(query.get_odometric_pose()) - Transform.from_pose2d(last_scan.get_odometric_pose()))
+            Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
 
-        sm_correction = Transform.from_pose2d(last_scan.get_corrected_pose()) + odom_diff
+        sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
 
-        query.set_corrected_pose(Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
+        query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
 
         res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
-        query.set_corrected_pose(res.best_pose)
+        query.corrected_pose = (res.best_pose)
 
         # add to graph
         self.add_vertex(query)
