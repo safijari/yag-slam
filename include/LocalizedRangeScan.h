@@ -8,7 +8,6 @@
 #include "Vector2.h"
 #include "AdditionalMath.h"
 #include "CoordinateConverter.h"
-#include "Sensor.h"
 #include "AdditionalMath.h"
 
 #include <assert.h>
@@ -17,7 +16,6 @@
 
 #include "Name.h"
 #include "SensorData.h"
-#include "SensorManager.h"
 #include "LocalizedRangeScan.h"
 
 /**
@@ -110,15 +108,6 @@ public:
       m_pRangeReadings = NULL;
     }
   }
-
-  /**
-   * Gets the laser range finder sensor that generated this scan
-   * @return laser range finder sensor of this scan
-   */
-  // inline LaserRangeFinder *GetLaserRangeFinder() const {
-  //   return SensorManager::GetInstance()->GetSensorByName<LaserRangeFinder>(
-  //       GetSensorName());
-  // }
 
   /**
    * Gets the number of range readings

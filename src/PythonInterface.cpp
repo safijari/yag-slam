@@ -5,7 +5,6 @@
 
 #include "LocalizedRangeScan.h"
 #include "ScanMatcher.h"
-#include "SensorManager.h"
 
 struct MatchResult {
   Pose2 best_pose;
