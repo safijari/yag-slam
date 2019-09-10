@@ -17,15 +17,11 @@ class Wrapper {
   ScanMatcher *matcher;
 
 public:
+  std::shared_ptr<ScanMatcherConfig> config;
+
   Wrapper(std::shared_ptr<ScanMatcherConfig> config) {
-
+    this->config = config;
     this->matcher = ScanMatcher::Create(config);
-  }
-
-  LocalizedRangeScan *MakeScan(LaserScanConfig config, std::vector<double> ranges, double x, double y,
-                               double yaw) {
-    auto scan = new LocalizedRangeScan(config, ranges, Pose2(x, y, yaw), Pose2(x, y, yaw), 0, 0.0);
-    return scan;
   }
 
   MatchResult MatchScan(LocalizedRangeScan *query,
@@ -78,11 +74,12 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
                   &LocalizedRangeScan::SetOdometricPose)
     .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
                   &LocalizedRangeScan::SetCorrectedPose)
-    .def_property("num", &LocalizedRangeScan::GetStateId, &LocalizedRangeScan::SetStateId)
+    .def_property("num", &LocalizedRangeScan::GetUniqueId, &LocalizedRangeScan::SetUniqueId)
     .def_property("time", &LocalizedRangeScan::GetTime, &LocalizedRangeScan::SetTime);
 
   py::class_<Wrapper>(m, "Wrapper")
       .def(py::init<std::shared_ptr<ScanMatcherConfig>>())
+      .def_readonly("config", &Wrapper::config)
       .def("match_scan", &Wrapper::MatchScan,
            py::return_value_policy::reference);
 
@@ -132,7 +129,7 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
         .def_readonly("max_angle", &LaserScanConfig::maxAngle)
         .def_readonly("angular_resolution", &LaserScanConfig::angularResolution)
         .def_readonly("min_range", &LaserScanConfig::minRange)
-        .def_readonly("min_range", &LaserScanConfig::maxRange)
+        .def_readonly("max_range", &LaserScanConfig::maxRange)
         .def_readonly("min_angle", &LaserScanConfig::minAngle)
         .def_readonly("range_threshold", &LaserScanConfig::rangeThreshold)
         .def_readonly("sensor_name", &LaserScanConfig::sensorName);
