@@ -7,36 +7,37 @@ from mp_slam.graph import Graph, Vertex, Edge, LinkLabel, do_breadth_first_trave
 from sba_cpp import SPA2d
 import numpy as np
 import time
+from mp_slam.serde import _serialize, _deserialize
+
 
 # The below violates encapsulation in the worst possible way
 def make_near_scan_visitor(distance):
     distsq = distance**2
+
     def near_scan_visitor(first_node, current_node):
         ret = scans_dist_squared(first_node.obj, current_node.obj)
         return ret < distsq
+
     return near_scan_visitor
 
 
 class MPGraphSlam(object):
-    def __init__(self,
-                 config,
-                 scan_buffer_len=10,
-                 scan_buffer_distance=None,  # TODO
-                 sensor_name=None,
-                 config_dict_seq=default_config,
-                 config_dict_loop=default_config_loop,
-                 loop_search_dist=3,
-                 loop_search_min_chain_size=10,
-                 min_response_coarse=0.35,
-                 min_response_fine=0.45):
+    def __init__(
+            self,
+            config,
+            scan_buffer_len=10,
+            config_dict_seq=default_config,
+            config_dict_loop=default_config_loop,
+            loop_search_dist=3,
+            loop_search_min_chain_size=10,
+            min_response_coarse=0.35,
+            min_response_fine=0.45):
 
-        sensor_name = str(uuid4()) if not sensor_name else sensor_name
         self.scan_config = config
         self.seq_matcher = Wrapper(make_config(config_dict_seq))
         self.loop_matcher = Wrapper(make_config(config_dict_loop))
 
         self.scan_buffer_len = scan_buffer_len
-        self.scan_buffer_distance = scan_buffer_distance
         self.graph = Graph()
 
         self.loop_search_dist = loop_search_dist
@@ -49,6 +50,20 @@ class MPGraphSlam(object):
         self.search = RadiusHashSearch([], res=self.loop_search_dist)
         self.min_response_coarse = min_response_coarse
         self.min_response_fine = min_response_fine
+
+    def serialize(self):
+        out = {}
+        out['scans'] = [_serialize(v.obj) for v in self.graph.vertices]
+        out['edges'] = [[e.source.obj.num, e.target.obj.num, _serialize(e.info)] for e in self.graph.edges]
+        out['scan_config'] = _serialize(self.scan_config)
+        out['seq_matcher_config'] = _serialize(self.seq_matcher.config)
+        out['loop_matcher_config'] = _serialize(self.seq_matcher.config)
+        out['scan_buffer_len'] = self.scan_buffer_len
+        out['loop_search_dist'] = self.loop_search_dist
+        out['loop_search_min_chain_size'] = self.loop_search_min_chain_size
+        out['min_response_coarse'] = self.min_response_coarse
+        out['min_response_fine'] = self.min_response_fine
+        return out
 
     def _print_config(self):
         print_config(self.config)
@@ -87,13 +102,15 @@ class MPGraphSlam(object):
                 # Edge already exists, quit
                 return
         diff = Transform.from_pose2d(to_scan.corrected_pose) - Transform.from_pose2d(from_scan.corrected_pose)
-        new_edge = Edge(from_vert, to_vert, LinkLabel(from_scan.corrected_pose, Pose2(diff.x, diff.y, diff.euler[-1]), covariance, supl))
+        new_edge = Edge(from_vert, to_vert,
+                        LinkLabel(Pose2(diff.x, diff.y, diff.euler[-1]), covariance))
         self.graph.edges.append(new_edge)
 
         src = from_vert.obj
         tgt = to_vert.obj
         diff = new_edge.info.mean
-        self.opt.add_constraint(src.num, tgt.num, diff.x, diff.y, diff.yaw, np.linalg.inv(np.array(new_edge.info.covariance)).tolist())
+        self.opt.add_constraint(src.num, tgt.num, diff.x, diff.y, diff.yaw,
+                                np.linalg.inv(np.array(new_edge.info.covariance)).tolist())
 
     def link_to_closest_scan_in_chain(self, scan, chain, mean, covariance, supl=None):
         """
@@ -141,7 +158,8 @@ class MPGraphSlam(object):
                 print("WARN: covariance too high for coarse")
 
             p = res_coarse.best_pose
-            tmpscan = LocalizedRangeScan(self.scan_config, scan.ranges, Pose2(p.x, p.y, p.yaw), Pose2(p.x, p.y, p.yaw), scan.num, scan.time)
+            tmpscan = LocalizedRangeScan(self.scan_config, scan.ranges, Pose2(p.x, p.y, p.yaw), Pose2(p.x, p.y, p.yaw),
+                                         scan.num, scan.time)
 
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
@@ -151,7 +169,14 @@ class MPGraphSlam(object):
 
             scan.corrected_pose = res.best_pose
 
-            self.link_to_closest_scan_in_chain(scan, chain, res.best_pose, res.covariance, supl={'coarse': res_coarse, 'fine': res})
+            self.link_to_closest_scan_in_chain(scan,
+                                               chain,
+                                               res.best_pose,
+                                               res.covariance,
+                                               supl={
+                                                   'coarse': res_coarse,
+                                                   'fine': res
+                                               })
 
             closed = True
 
@@ -159,7 +184,7 @@ class MPGraphSlam(object):
             print("successful loop closure")
             begin = time.time()
             self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
-            print("opt took {} seconds".format(time.time()-begin))
+            print("opt took {} seconds".format(time.time() - begin))
 
             for node, vtx in zip(self.opt.nodes, self.graph.vertices):
                 vtx.obj.corrected_pose = Pose2(node.x, node.y, node.yaw)
@@ -200,8 +225,8 @@ class MPGraphSlam(object):
         return chains
 
     def process_scan(self, scan, x, y, yaw, flip_ranges=True):
-        query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges),
-                                   Pose2(x, y, yaw), Pose2(x, y, yaw), 0, 0.0)
+        query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), Pose2(x, y, yaw),
+                                   Pose2(x, y, yaw), 0, 0.0)
 
         if len(self.running_scans) == 0:
             query.num = 0
@@ -213,8 +238,7 @@ class MPGraphSlam(object):
         query.num = last_scan.num + 1
         # Initialize starting location for matching
 
-        odom_diff = (
-            Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
+        odom_diff = (Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
 
         sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
 

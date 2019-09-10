@@ -2,6 +2,7 @@ from collections import namedtuple
 import json
 from mp_slam import make_config
 from mp_slam_cpp import ScanMatcherConfig, Pose2, LocalizedRangeScan, LaserScanConfig, Wrapper
+from mp_slam.graph import LinkLabel
 
 SerdeConfig = namedtuple('SerdeConfig', ['cls', 'variables', 'factory'])
 
@@ -42,5 +43,6 @@ _configs = {
     'Wrapper':
     SerdeConfig(Wrapper, ['config'], None),
     'ScanMatcherConfig':
-    SerdeConfig(ScanMatcherConfig, [v for v in dir(ScanMatcherConfig()) if v[0] != '_'], make_config)
+    SerdeConfig(ScanMatcherConfig, [v for v in dir(ScanMatcherConfig()) if v[0] != '_'], make_config),
+    'LinkLabel': SerdeConfig(LinkLabel, ['mean', 'covariance'], None)
 }
