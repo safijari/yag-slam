@@ -34,7 +34,7 @@ class Edge(object):
     def __init__(self, source, target, link_info):    # Vertices
         self.source = source
         self.target = target
-        self.info = link_info    # (interface: pose, mean, covar)
+        self.info = link_info    # (interface: mean, covar)
         self.source.add_edge(self)
         self.target.add_edge(self)
 
