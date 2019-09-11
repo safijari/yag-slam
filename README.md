@@ -1,1 +1,1 @@
-# mp-slam
+# YAG SLAM (Yet Another Graph SLAM)
