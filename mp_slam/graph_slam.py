@@ -55,6 +55,7 @@ class MPGraphSlam(object):
         out = {}
         out['scans'] = [_serialize(v.obj) for v in self.graph.vertices]
         out['edges'] = [[e.source.obj.num, e.target.obj.num, _serialize(e.info)] for e in self.graph.edges]
+        out['running_scans'] = [s.num for s in self.running_scans]
         out['scan_config'] = _serialize(self.scan_config)
         out['seq_matcher_config'] = _serialize(self.seq_matcher.config)
         out['loop_matcher_config'] = _serialize(self.seq_matcher.config)
@@ -64,6 +65,24 @@ class MPGraphSlam(object):
         out['min_response_coarse'] = self.min_response_coarse
         out['min_response_fine'] = self.min_response_fine
         return out
+
+    @classmethod
+    def deserialize(cls, d):
+        obj = cls(_deserialize(d['scan_config']), d['scan_buffer_len'],
+                  {k: v for k, v in d['seq_matcher_config'].items() if k != '___name'},
+                  {k: v for k, v in d['loop_matcher_config'].items() if k != '___name'},
+                  d['loop_search_dist'], d['loop_search_min_chain_size'],
+                  d['min_response_coarse'], d['min_response_fine'])
+        for s in d['scans']:
+            obj.add_vertex(_deserialize(s))
+
+        vs = obj.graph.vertices
+        for from_num, to_num, info in d['edges']:
+            obj.graph.add_edge(Edge(vs[from_num], vs[to_num], _deserialize(info)))
+
+        obj.running_scans = [vs[i].obj for i in d['running_scans']]
+
+        return obj
 
     def _print_config(self):
         print_config(self.config)

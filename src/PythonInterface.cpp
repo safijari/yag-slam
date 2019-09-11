@@ -3,7 +3,9 @@
 #include <pybind11/stl.h>
 #include <vector>
 
+#include "Grid.h"
 #include "LocalizedRangeScan.h"
+#include "OccupancyGrid.h"
 #include "ScanMatcher.h"
 
 struct MatchResult {
@@ -25,19 +27,25 @@ public:
   }
 
   MatchResult MatchScan(LocalizedRangeScan *query,
-                        const LocalizedRangeScanVector &base, bool penalize=true, bool refine=true) {
+                        const LocalizedRangeScanVector &base,
+                        bool penalize = true, bool refine = true) {
     Pose2 mean;
     Matrix3 covariance;
 
-    auto ret = this->matcher->MatchScan(query, base, mean, covariance, penalize, refine);
+    auto ret = this->matcher->MatchScan(query, base, mean, covariance, penalize,
+                                        refine);
 
     return MatchResult{mean, covariance, ret};
   }
 
-  ~Wrapper() {
-    delete this->matcher;
-  }
+  ~Wrapper() { delete this->matcher; }
 };
+
+OccupancyGrid *CreateOccupancyGrid(LocalizedRangeScanVector *scans,
+                                   double resolution) {
+  auto pOccupancyGrid = OccupancyGrid::CreateFromScans(*scans, resolution);
+  return pOccupancyGrid;
+}
 
 namespace py = pybind11;
 
@@ -67,15 +75,19 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
   py::class_<Name>(m, "Name").def(py::init<const std::string &>());
 
   py::class_<LocalizedRangeScan>(m, "LocalizedRangeScan")
-    .def(py::init<LaserScanConfig, std::vector<double>, Pose2, Pose2, uint32_t, double>())
-    .def_readonly("config", &LocalizedRangeScan::config)
-    .def_property_readonly("ranges", &LocalizedRangeScan::GetRangeReadingsVector)
-    .def_property("odom_pose", &LocalizedRangeScan::GetOdometricPose,
-                  &LocalizedRangeScan::SetOdometricPose)
-    .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
-                  &LocalizedRangeScan::SetCorrectedPose)
-    .def_property("num", &LocalizedRangeScan::GetUniqueId, &LocalizedRangeScan::SetUniqueId)
-    .def_property("time", &LocalizedRangeScan::GetTime, &LocalizedRangeScan::SetTime);
+      .def(py::init<LaserScanConfig, std::vector<double>, Pose2, Pose2,
+                    uint32_t, double>())
+      .def_readonly("config", &LocalizedRangeScan::config)
+      .def_property_readonly("ranges",
+                             &LocalizedRangeScan::GetRangeReadingsVector)
+      .def_property("odom_pose", &LocalizedRangeScan::GetOdometricPose,
+                    &LocalizedRangeScan::SetOdometricPose)
+      .def_property("corrected_pose", &LocalizedRangeScan::GetCorrectedPose,
+                    &LocalizedRangeScan::SetCorrectedPose)
+      .def_property("num", &LocalizedRangeScan::GetUniqueId,
+                    &LocalizedRangeScan::SetUniqueId)
+      .def_property("time", &LocalizedRangeScan::GetTime,
+                    &LocalizedRangeScan::SetTime);
 
   py::class_<Wrapper>(m, "Wrapper")
       .def(py::init<std::shared_ptr<ScanMatcherConfig>>())
@@ -123,16 +135,38 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
       .def_readwrite("smear_deviation", &ScanMatcherConfig::smearDeviation)
       .def_readwrite("range_threshold", &ScanMatcherConfig::rangeThreshold);
 
-      py::class_<LaserScanConfig, std::shared_ptr<LaserScanConfig>>(m, "LaserScanConfig")
-        .def(py::init<double, double, double, double, double, double, std::string>())
-        .def_readonly("min_angle", &LaserScanConfig::minAngle)
-        .def_readonly("max_angle", &LaserScanConfig::maxAngle)
-        .def_readonly("angular_resolution", &LaserScanConfig::angularResolution)
-        .def_readonly("min_range", &LaserScanConfig::minRange)
-        .def_readonly("max_range", &LaserScanConfig::maxRange)
-        .def_readonly("min_angle", &LaserScanConfig::minAngle)
-        .def_readonly("range_threshold", &LaserScanConfig::rangeThreshold)
-        .def_readonly("sensor_name", &LaserScanConfig::sensorName);
+  m.def("create_occupancy_grid", &CreateOccupancyGrid);
+
+  py::class_<LaserScanConfig, std::shared_ptr<LaserScanConfig>>(
+      m, "LaserScanConfig")
+      .def(py::init<double, double, double, double, double, double,
+                    std::string>())
+      .def_readonly("min_angle", &LaserScanConfig::minAngle)
+      .def_readonly("max_angle", &LaserScanConfig::maxAngle)
+      .def_readonly("angular_resolution", &LaserScanConfig::angularResolution)
+      .def_readonly("min_range", &LaserScanConfig::minRange)
+      .def_readonly("max_range", &LaserScanConfig::maxRange)
+      .def_readonly("min_angle", &LaserScanConfig::minAngle)
+      .def_readonly("range_threshold", &LaserScanConfig::rangeThreshold)
+      .def_readonly("sensor_name", &LaserScanConfig::sensorName);
+
+  py::enum_<GridStates>(m, "GridStates")
+      .value("Unknown", GridStates::GridStates_Unknown)
+      .value("Occupied", GridStates::GridStates_Occupied)
+      .value("Free", GridStates::GridStates_Free);
+
+  py::class_<OccupancyGrid>(m, "OccupancyGrid")
+      .def_property_readonly("width", &OccupancyGrid::GetWidth)
+      .def_property_readonly("height", &OccupancyGrid::GetHeight)
+      .def_property_readonly("offset",
+                             [](const OccupancyGrid &a) {
+                               auto offset =
+                                   (a.GetCoordinateConverter()->GetOffset());
+                               return offset;
+                             })
+      .def("get_value", [](const OccupancyGrid &a, int32_t x, int32_t y) {
+        return a.GetValue(Vector2<int32_t>(x, y));
+      });
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;

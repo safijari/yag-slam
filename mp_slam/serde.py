@@ -5,6 +5,7 @@ from mp_slam_cpp import ScanMatcherConfig, Pose2, LocalizedRangeScan, LaserScanC
 from mp_slam.graph import LinkLabel
 
 SerdeConfig = namedtuple('SerdeConfig', ['cls', 'variables', 'factory'])
+NAME = '___name'
 
 
 def _class_name(obj):
@@ -15,17 +16,19 @@ def _serialize(obj):
     n = _class_name(obj)
     if n in _configs:
         d = {v: _serialize(obj.__getattribute__(v)) for v in _configs[n].variables}
-        d['___name'] = n
+        d[NAME] = n
         return d
     else:
         return obj
 
 
 def _deserialize(d):
-    if isinstance(d, dict) and '___name' in d:
-        cfg = _configs[d['___name']]
+    if isinstance(d, dict) and NAME in d:
+        cfg = _configs[d[NAME]]
         if cfg.factory:
-            return cfg.factory(d)
+            dd = d.copy()
+            del dd[NAME]
+            return cfg.factory(dd)
         return cfg.cls(*[_deserialize(d[v]) for v in cfg.variables])
     return d
 
