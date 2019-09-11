@@ -42,8 +42,8 @@ public:
 };
 
 OccupancyGrid *CreateOccupancyGrid(LocalizedRangeScanVector *scans,
-                                   double resolution) {
-  auto pOccupancyGrid = OccupancyGrid::CreateFromScans(*scans, resolution);
+                                   double resolution, double rangeThreshold) {
+  auto pOccupancyGrid = OccupancyGrid::CreateFromScans(*scans, resolution, rangeThreshold);
   return pOccupancyGrid;
 }
 
@@ -156,17 +156,32 @@ PYBIND11_MODULE(mp_slam_cpp, m) {
       .value("Free", GridStates::GridStates_Free);
 
   py::class_<OccupancyGrid>(m, "OccupancyGrid")
-      .def_property_readonly("width", &OccupancyGrid::GetWidth)
-      .def_property_readonly("height", &OccupancyGrid::GetHeight)
-      .def_property_readonly("offset",
-                             [](const OccupancyGrid &a) {
-                               auto offset =
-                                   (a.GetCoordinateConverter()->GetOffset());
-                               return offset;
-                             })
-      .def("get_value", [](const OccupancyGrid &a, int32_t x, int32_t y) {
-        return a.GetValue(Vector2<int32_t>(x, y));
-      });
+    .def_property_readonly("width", &OccupancyGrid::GetWidth)
+    .def_property_readonly("height", &OccupancyGrid::GetHeight)
+    .def_property_readonly("offset",
+                           [](const OccupancyGrid &a) {
+                             auto offset =
+                               (a.GetCoordinateConverter()->GetOffset());
+                             return offset;
+                           })
+    .def("get_value", [](const OccupancyGrid &a, int32_t x, int32_t y) {
+                        return a.GetValue(Vector2<int32_t>(x, y));
+                      })
+    .def_property_readonly("image", [](const OccupancyGrid &a) {
+                       auto h = a.GetHeight();
+                       auto w = a.GetWidth();
+                       auto _r = py::array_t<uint8_t>({h, w});
+                       auto r = _r.mutable_unchecked<2>();
+                       for (auto j = 0; j < h; j++) {
+                         for (auto i = 0; i < w; i++) {
+                           auto val = a.GetValue(Vector2<int32_t>(w - i - 1, j));
+                           if (val == 0) { val = 200; } else if (val == 100) { val = 0; }
+                           r(j, w - i - 1) = val;
+                         }
+                       }
+                       return _r;
+                     })
+    ;
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;

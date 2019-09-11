@@ -44,11 +44,12 @@ public:
                 const Vector2<double> &rOffset,
                 double resolution,
                 uint32_t minPassThrough = 2,
-                double occupancyThreshold = 0.1)
+                double occupancyThreshold = 0.1,
+                double _rangeThreshold = 0)
       : Grid<uint8_t>(width, height),
         m_pCellPassCnt(Grid<uint32_t>::CreateGrid(0, 0, resolution)),
         m_pCellHitsCnt(Grid<uint32_t>::CreateGrid(0, 0, resolution)),
-        m_pCellUpdater(NULL) {
+        m_pCellUpdater(NULL), rangeThreshold(_rangeThreshold) {
     m_pCellUpdater = new CellUpdater(this);
 
     // TODO Exceptions?
@@ -79,7 +80,7 @@ public:
    * @param resolution
    */
   static OccupancyGrid *CreateFromScans(const LocalizedRangeScanVector &rScans,
-                                        double resolution) {
+                                        double resolution, double rangeThreshold) {
     if (rScans.empty()) {
       return NULL;
     }
@@ -88,7 +89,8 @@ public:
     Vector2<double> offset;
     ComputeDimensions(rScans, resolution, width, height, offset);
     OccupancyGrid *pOccupancyGrid =
-        new OccupancyGrid(width, height, offset, resolution);
+      new OccupancyGrid(width, height, offset, resolution);
+    pOccupancyGrid->rangeThreshold = rangeThreshold;
     pOccupancyGrid->CreateFromScans(rScans);
 
     return pOccupancyGrid;
@@ -253,8 +255,10 @@ protected:
    * @return returns false if an endpoint fell off the grid, otherwise true
    */
   virtual bool AddScan(LocalizedRangeScan *pScan, bool doUpdate = false) {
-    double rangeThreshold =
-        pScan->GetRangeThreshold();
+    double _rangeThreshold = (rangeThreshold > pScan->GetMinimumRange() &&
+                              rangeThreshold < pScan->GetMaximumRange())
+                                 ? rangeThreshold
+                                 : pScan->GetRangeThreshold();
     double maxRange = pScan->GetMaximumRange();
     double minRange = pScan->GetMinimumRange();
 
@@ -270,16 +274,16 @@ protected:
     for (auto pointsIter : rPointReadings) {
       Vector2<double> point = pointsIter;
       double rangeReading = pScan->GetRangeReadings()[pointIndex];
-      bool isEndPointValid = rangeReading < (rangeThreshold - KT_TOLERANCE);
+      bool isEndPointValid = rangeReading < (_rangeThreshold - KT_TOLERANCE);
 
       if (rangeReading <= minRange || rangeReading >= maxRange ||
           std::isnan(rangeReading)) {
         // ignore these readings
         pointIndex++;
         continue;
-      } else if (rangeReading >= rangeThreshold) {
+      } else if (rangeReading >= _rangeThreshold) {
         // trace up to range reading
-        double ratio = rangeThreshold / rangeReading;
+        double ratio = _rangeThreshold / rangeReading;
         double dx = point.GetX() - scanPosition.GetX();
         double dy = point.GetY() - scanPosition.GetY();
         point.SetX(scanPosition.GetX() + ratio * dx);
@@ -429,6 +433,7 @@ private:
   // Minimum ratio of beams hitting cell to beams passing through cell for cell
   // to be marked as occupied
   double m_pOccupancyThreshold;
+  double rangeThreshold;
 }; // OccupancyGrid
 
 #endif
