@@ -1,6 +1,6 @@
 from .__init__ import print_config, default_config
 
-from mp_slam_cpp import Wrapper, Pose2, ScanMatcherConfig
+from mp_slam_cpp import Wrapper, ScanMatcherConfig, Pose2
 from uuid import uuid4
 from tiny_tf.tf import Transform
 
@@ -57,16 +57,16 @@ class MPScanMatcher(object):
 
         start = time.time()
         odom_diff = (
-            Transform.from_pose2d(query.get_odometric_pose()) - Transform.from_pose2d(last_scan.get_odometric_pose()))
+            Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
 
         print(f"did diff in {time.time()-start}")
 
         start = time.time()
-        sm_correction = Transform.from_pose2d(last_scan.get_corrected_pose()) + odom_diff
+        sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
         print(f"applied diff in {time.time()-start}")
 
         start = time.time()
-        query.set_corrected_pose(Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
+        query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
         print(f"applied diffed pose in {time.time()-start}")
 
         # res contains res.response (0 to 1, 1 being best),
@@ -79,7 +79,7 @@ class MPScanMatcher(object):
 
         start = time.time()
         # This could maybe not be done if the response is too low
-        query.set_corrected_pose(res.best_pose)
+        query.corrected_pose = (res.best_pose)
         print(f"apply corrected pose in {time.time()-start}")
 
         self.recent_scans.append(query)

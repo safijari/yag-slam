@@ -7,11 +7,9 @@ What I need:
 
 
 class LinkLabel(object):
-    def __init__(self, pose, mean, covariance, supl=None):
-        self.pose = pose
+    def __init__(self, mean, covariance):
         self.mean = mean
         self.covariance = covariance
-        self.supl = supl
 
 
 class Vertex(object):
@@ -36,7 +34,7 @@ class Edge(object):
     def __init__(self, source, target, link_info):    # Vertices
         self.source = source
         self.target = target
-        self.info = link_info    # (interface: pose, mean, covar)
+        self.info = link_info    # (interface: mean, covar)
         self.source.add_edge(self)
         self.target.add_edge(self)
 
@@ -92,8 +90,3 @@ def do_breadth_first_traversal(start_vert, visit_fn, return_objs=True):
     if return_objs:
         return [v.obj for v in valid_verts]
     return valid_verts
-
-"""
-def link_scans(scan1, scan2, mean_scan1, covar_scan1):
-    (don't link if link already exists)
-"""

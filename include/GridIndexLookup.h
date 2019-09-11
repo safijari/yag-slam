@@ -1,7 +1,7 @@
 #ifndef GRID_IDX_LKUP_H
 #define GRID_IDX_LKUP_H
 #include "Grid.h"
-#include "LocalizedRangeScanAndFinder.h"
+#include "LocalizedRangeScan.h"
 #include "LookupArray.h"
 #include "Transform.h"
 #include <stdio.h>
@@ -79,11 +79,11 @@ public:
 
     const PointVectorDouble &rPointReadings = pScan->GetPointReadings();
 
-    
-    // compute transform to scan pose
-    Transform transform(pScan->GetSensorPose());
 
-    
+    // compute transform to scan pose
+    Transform transform(pScan->GetCorrectedPose());
+
+
     Pose2Vector localPoints;
     for (auto iter : rPointReadings) {
       // do inverse transform to get points in local coordinates
@@ -91,7 +91,7 @@ public:
       localPoints.push_back(vec);
     }
 
-    
+
 
     //////////////////////////////////////////////////////
     // create lookup array for different angles
@@ -133,7 +133,7 @@ private:
     int32_t *pAngleIndexPointer =
         m_ppLookupArray[angleIndex]->GetArrayPointer();
 
-    double maxRange = pScan->GetLaserRangeFinder()->GetMaximumRange();
+    double maxRange = pScan->GetMaximumRange();
 
     for (auto iter : rLocalPoints) {
       const Vector2<double> &rPosition = iter.GetPosition();
