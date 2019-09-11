@@ -5,7 +5,7 @@
 #include "Pose.h"
 #include "Matrix.h"
 #include "CorrelationGrid.h"
-#include "LocalizedRangeScanAndFinder.h"
+#include "LocalizedRangeScan.h"
 #include "GridIndexLookup.h"
 
 #define MAX_VARIANCE            500.0
