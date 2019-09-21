@@ -1,6 +1,22 @@
+# Copyright 2019 Jariullah Safi
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 from .__init__ import print_config, default_config, make_config, scans_dist_squared, default_config_loop, RadiusHashSearch
 
-from mp_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2
+from yag_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2
 from uuid import uuid4
 from tiny_tf.tf import Transform
 from mp_slam.graph import Graph, Vertex, Edge, LinkLabel, do_breadth_first_traversal
