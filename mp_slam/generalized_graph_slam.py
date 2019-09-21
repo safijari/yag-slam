@@ -37,21 +37,19 @@ def make_near_scan_visitor(distance):
     return near_scan_visitor
 
 
-class GraphSlam2D(object):
+class GraphSlam(object):
     def __init__(
             self,
-            config,
+            seq_matcher,
+            loop_matcher,
             scan_buffer_len=10,
-            config_dict_seq=default_config,
-            config_dict_loop=default_config_loop,
             loop_search_dist=3,
             loop_search_min_chain_size=10,
             min_response_coarse=0.35,
             min_response_fine=0.45):
 
-        self.scan_config = config
-        self.seq_matcher = Wrapper(make_config(config_dict_seq))
-        self.loop_matcher = Wrapper(make_config(config_dict_loop))
+        self.seq_matcher = seq_matcher
+        self.loop_matcher = loop_matcher
 
         self.scan_buffer_len = scan_buffer_len
         self.graph = Graph()
@@ -115,7 +113,7 @@ class GraphSlam2D(object):
         vertex = Vertex(scan)
         self.graph.add_vertex(vertex)
         p = vertex.obj.corrected_pose
-        self.opt.add_node(p.x, p.y, p.yaw, vertex.obj.num)
+        self.opt.add_node(p.x, p.y, p.euler[-1], vertex.obj.num)
         self.search.add_new_element(vertex)
 
     def add_edges(self, scan, covariance):
@@ -136,15 +134,15 @@ class GraphSlam2D(object):
                 # print("{} to {} already exists".format(from_scan.num, to_scan.num))
                 # Edge already exists, quit
                 return
-        diff = Transform.from_pose2d(to_scan.corrected_pose) - Transform.from_pose2d(from_scan.corrected_pose)
+        diff = to_scan.corrected_pose - from_scan.corrected_pose
         new_edge = Edge(from_vert, to_vert,
-                        LinkLabel(Pose2(diff.x, diff.y, diff.euler[-1]), covariance))
+                        LinkLabel(diff, covariance))
         self.graph.edges.append(new_edge)
 
         src = from_vert.obj
         tgt = to_vert.obj
         diff = new_edge.info.mean
-        self.opt.add_constraint(src.num, tgt.num, diff.x, diff.y, diff.yaw,
+        self.opt.add_constraint(src.num, tgt.num, diff.x, diff.y, diff.euler[-1],
                                 np.linalg.inv(np.array(new_edge.info.covariance)).tolist())
 
     def link_to_closest_scan_in_chain(self, scan, chain, mean, covariance, supl=None):
@@ -193,8 +191,8 @@ class GraphSlam2D(object):
                 print("WARN: covariance too high for coarse")
 
             p = res_coarse.best_pose
-            tmpscan = LocalizedRangeScan(self.scan_config, scan.ranges, Pose2(p.x, p.y, p.yaw), Pose2(p.x, p.y, p.yaw),
-                                         scan.num, scan.time)
+
+            tmpscan = scan.copy()
 
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
@@ -222,7 +220,7 @@ class GraphSlam2D(object):
             print("opt took {} seconds".format(time.time() - begin))
 
             for node, vtx in zip(self.opt.nodes, self.graph.vertices):
-                vtx.obj.corrected_pose = Pose2(node.x, node.y, node.yaw)
+                vtx.obj.corrected_pose = Transform.from_pose2d(Pose2(node.x, node.y, node.yaw))
 
             self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
 
@@ -259,9 +257,11 @@ class GraphSlam2D(object):
 
         return chains
 
-    def process_scan(self, scan, x, y, yaw, flip_ranges=True):
-        query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), Pose2(x, y, yaw),
-                                   Pose2(x, y, yaw), 0, 0.0)
+    def process_scan(self, scan):
+        # Scan has corrected_pose, odom_pose, num, and whatever the matcher needs
+        query = scan
+        # query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), Pose2(x, y, yaw),
+        #                            Pose2(x, y, yaw), 0, 0.0)
 
         if len(self.running_scans) == 0:
             query.num = 0
@@ -273,11 +273,11 @@ class GraphSlam2D(object):
         query.num = last_scan.num + 1
         # Initialize starting location for matching
 
-        odom_diff = (Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
+        odom_diff = query.odom_pose - last_scan.odom_pose
 
-        sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
+        sm_correction = last_scan.corrected_pose + odom_diff
 
-        query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
+        query.corrected_pose = sm_correction
 
         res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
         query.corrected_pose = (res.best_pose)

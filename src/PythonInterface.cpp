@@ -1,3 +1,20 @@
+/*
+ * Copyright 2019 Jariullah Safi
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -29,6 +46,7 @@ public:
   MatchResult MatchScan(LocalizedRangeScan *query,
                         const LocalizedRangeScanVector &base,
                         bool penalize = true, bool refine = true) {
+    py::gil_scoped_release release;
     Pose2 mean;
     Matrix3 covariance;
 
@@ -43,13 +61,14 @@ public:
 
 OccupancyGrid *CreateOccupancyGrid(LocalizedRangeScanVector *scans,
                                    double resolution, double rangeThreshold) {
+  py::gil_scoped_release release;
   auto pOccupancyGrid = OccupancyGrid::CreateFromScans(*scans, resolution, rangeThreshold);
   return pOccupancyGrid;
 }
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(mp_slam_cpp, m) {
+PYBIND11_MODULE(yag_slam_cpp, m) {
   py::class_<Pose2>(m, "Pose2")
       .def(py::init<double, double, double>())
       .def_property("x", &Pose2::GetX, &Pose2::SetX)
