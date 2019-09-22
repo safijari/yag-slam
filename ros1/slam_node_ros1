@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+import rospy
+from yag_slam.graph_slam import GraphSlam2D, make_near_scan_visitor
+from yag_slam.graph import do_breadth_first_traversal
+from yag_slam_cpp import (LocalizedRangeScan, LaserScanConfig, Wrapper, Pose2, create_occupancy_grid)
+from tiny_tf.tf import Transform
+from sensor_msgs.msg import LaserScan
+import tf2_ros
+from collections import namedtuple
+
+class YAGSlamRos1(object):
+    def __init__(self, odom_frame="odom", map_frame="map",
+                 min_distance=0.5, min_rotation=0.5,
+                 scan_buffer_len=10,
+                 loop_search_distance=6.0,
+                 loop_search_min_chain_size=10,
+                 min_response_coarse=0.35,
+                 min_response_fine=0.35,
+                 range_threshold=12):
+        self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
+        self.setup = False
+        self.tfb = tf2_ros.Buffer()
+        self.tfl = tf2_ros.TransformListener(self.tfb)
+        self.odom_frame = odom_frame
+        self.map_frame = map_frame
+        self.min_distance = 0.5
+        self.min_rotation = 0.5
+        self.loop_search_min_chain_size = loop_search_min_chain_size
+        self.loop_search_distance = loop_search_distance
+        self.min_response_coarse = min_response_coarse
+        self.min_response_fine = min_response_fine
+        self.range_threshold = range_threshold
+        self.scan_buffer_len = scan_buffer_len
+
+        self.scan_config = None
+        self.mapper = None
+        self.last_pose = None
+
+    def setup_mapper(self, msg):
+        self.scan_config = LaserScanConfig(
+            msg.angle_min, msg.angle_max,
+            msg.angle_increment,
+            msg.range_min, msg.range_max, self.range_threshold, "")
+        self.mapper = GraphSlam2D(
+            self.scan_config, loop_search_dist=self.loop_search_distance,
+            loop_search_min_chain_size=self.loop_search_min_chain_size,
+            scan_buffer_len=self.scan_buffer_len,
+            min_response_coarse=self.min_response_coarse,
+            min_response_fine=self.min_response_fine)
+
+    def process_scan(self, msg):
+        if not self.mapper:
+            self.setup_mapper(msg)
+
+        t = self.tfb.lookup_transform(
+            'base_footprint', self.odom_frame, msg.header.stamp)
+
+        print(t)
+        pass
+
+
+if __name__ == '__main__':
+    rospy.init_node('yag_slam', anonymous=True)
+    mapper = YAGSlamRos1()
+    rospy.spin()
