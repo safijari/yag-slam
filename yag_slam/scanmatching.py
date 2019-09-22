@@ -62,7 +62,7 @@ class ScanMatcher(object):
         import time
         start = time.time()
         query = self.matcher.make_scan(self._ranges_from_scan(scan, flip_ranges), x, y, yaw)
-        print(f"made scan in {time.time()-start}")
+        print("made scan in {}".format(time.time()-start))
 
         if len(self.recent_scans) == 0:
             self.recent_scans.append(query)
@@ -74,15 +74,12 @@ class ScanMatcher(object):
         odom_diff = (
             Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
 
-        print(f"did diff in {time.time()-start}")
-
         start = time.time()
         sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
-        print(f"applied diff in {time.time()-start}")
+        print("applied diff in {}".format(time.time()-start))
 
         start = time.time()
         query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
-        print(f"applied diffed pose in {time.time()-start}")
 
         # res contains res.response (0 to 1, 1 being best),
         # res.covariance (3x3 matrix, 1,1 is x cov, 2,2 is ycov, 3,3 is theta cov),
@@ -90,12 +87,10 @@ class ScanMatcher(object):
 
         start = time.time()
         res = self.matcher.match_scan(query, self.recent_scans)
-        print(f"actual match in {time.time()-start}")
 
         start = time.time()
         # This could maybe not be done if the response is too low
         query.corrected_pose = (res.best_pose)
-        print(f"apply corrected pose in {time.time()-start}")
 
         self.recent_scans.append(query)
         self.recent_scans = self.recent_scans[-self.scan_buffer_len:]

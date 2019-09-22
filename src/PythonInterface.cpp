@@ -25,6 +25,8 @@
 #include "OccupancyGrid.h"
 #include "ScanMatcher.h"
 
+namespace py = pybind11;
+
 struct MatchResult {
   Pose2 best_pose;
   Matrix3 covariance;
@@ -65,8 +67,6 @@ OccupancyGrid *CreateOccupancyGrid(LocalizedRangeScanVector *scans,
   auto pOccupancyGrid = OccupancyGrid::CreateFromScans(*scans, resolution, rangeThreshold);
   return pOccupancyGrid;
 }
-
-namespace py = pybind11;
 
 PYBIND11_MODULE(yag_slam_cpp, m) {
   py::class_<Pose2>(m, "Pose2")
