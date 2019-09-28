@@ -44,30 +44,40 @@ def TransformToTfTransform(xform, frame_id, child_frame_id):
     return t
 
 
+def _p(name, default):
+    val = rospy.get_param(name, default)
+    print("Queried param {} with default {} and got {}".format(name, default, val))
+    return val
+
+
 class YAGSlamRos1(Thread):
-    def __init__(self, odom_frame="odom", map_frame="map",
-                 min_distance=0.5, min_rotation=0.5,
-                 scan_buffer_len=10,
-                 loop_search_distance=6.0,
-                 loop_search_min_chain_size=10,
-                 min_response_coarse=0.35,
-                 min_response_fine=0.35,
-                 range_threshold=12):
+    # def __init__(self, odom_frame="odom", map_frame="map",
+    #              min_distance=0.5, min_rotation=0.5,
+    #              scan_buffer_len=10,
+    #              loop_search_distance=6.0,
+    #              loop_search_min_chain_size=10,
+    #              min_response_coarse=0.35,
+    #              min_response_fine=0.35,
+    #              range_threshold_for_map=12):
+    def __init__(self):
         Thread.__init__(self)
         self.setup = False
         self.tfb = tf2_ros.Buffer()
         self.tbr = tf2_ros.TransformBroadcaster()
         self.tfl = tf2_ros.TransformListener(self.tfb)
-        self.odom_frame = odom_frame
-        self.map_frame = map_frame
-        self.min_distance = 0.5
-        self.min_rotation = 0.5
-        self.loop_search_min_chain_size = loop_search_min_chain_size
-        self.loop_search_distance = loop_search_distance
-        self.min_response_coarse = min_response_coarse
-        self.min_response_fine = min_response_fine
-        self.range_threshold = range_threshold
-        self.scan_buffer_len = scan_buffer_len
+
+        self.odom_frame = _p('~odom_frame', 'odom')
+        self.map_frame = _p('~map_frame', 'map')
+        self.min_distance = _p('~min_distance', 0.5)
+        self.min_rotation = _p('~min_rotation', 0.5)
+        self.loop_search_min_chain_size = _p('~loop_search_min_chain_size', 10)
+        self.loop_search_distance = _p('~loop_search_distance', 6.0)
+        self.min_response_coarse = _p('~min_response_coarse', 0.35)
+        self.min_response_fine = _p('~min_response_fine', 0.45)
+        self.range_threshold_for_map = _p('~range_threshold_for_map', 12)
+        self.range_threshold = _p('~range_threshold', 30)
+        self.scan_buffer_len = _p('~scan_buffer_len', 10)
+        self.map_resolution = _p('~map_resolution', 0.05)
 
         self.scan_config = None
         self.mapper = None
@@ -92,13 +102,37 @@ class YAGSlamRos1(Thread):
         self.scan_config = LaserScanConfig(
             msg.angle_min, msg.angle_max,
             msg.angle_increment,
-            msg.range_min, msg.range_max, self.range_threshold, "")
+            msg.range_min, msg.range_max, self.range_threshold_for_map, "")
+
+        seq_scan_matcher_config = {
+            "angle_variance_penalty": _p("~angle_variance_penalty", 1.0),
+            "distance_variance_penalty": _p("~distance_variance_penalty", 0.5),
+            "coarse_search_angle_offset": _p("~coarse_search_angle_offset", 0.349),
+            "coarse_angle_resolution": _p("~coarse_angle_resolution", 0.0349),
+            "fine_search_angle_offset": _p("~fine_search_angle_offset", 0.00349),
+            "use_response_expansion": _p("~use_response_expansion", True),
+            "range_threshold": _p("~range_threshold", 55),
+            "minimum_angle_penalty": _p("~minimum_angle_penalty", 0.9),
+            "search_size": _p("~sequential_matching_search_size", 0.5),
+            "resolution": _p("~sequential_matching_resolution", 0.01),
+            "smear_deviation": _p("~sequential_matching_smear_deviation", 0.1),
+        }
+
+        loop_scan_matcher_config = seq_scan_matcher_config.copy()
+        loop_scan_matcher_config.update({
+            "search_size": _p("~loop_matching_search_size", 8.0),
+            "resolution": _p("~loop_matching_resolution", 0.05),
+            "smear_deviation": _p("~loop_matching_smear_deviation", 0.03),
+        })
+
         self.mapper = GraphSlam2D(
             self.scan_config, loop_search_dist=self.loop_search_distance,
             loop_search_min_chain_size=self.loop_search_min_chain_size,
             scan_buffer_len=self.scan_buffer_len,
             min_response_coarse=self.min_response_coarse,
-            min_response_fine=self.min_response_fine)
+            min_response_fine=self.min_response_fine,
+            config_dict_seq=seq_scan_matcher_config,
+            config_dict_loop=loop_scan_matcher_config)
 
     def _map_callback(self, req):
         resp = GetMapResponse()
@@ -106,12 +140,12 @@ class YAGSlamRos1(Thread):
         return resp
 
     def _make_map(self, msg=True):
-        grid = create_occupancy_grid([v.obj for v in self.mapper.graph.vertices], 0.05, self.range_threshold)
+        grid = create_occupancy_grid([v.obj for v in self.mapper.graph.vertices], self.map_resolution, self.range_threshold_for_map)
         im = grid.image
         if not msg:
             return im
         map_msg = OccupancyGrid()
-        map_msg.info.resolution = 0.05
+        map_msg.info.resolution = self.map_resolution
         map_msg.info.height, map_msg.info.width,  = grid.height, grid.width
         map_msg.data = (100-im.flatten()/255.0*100).astype('uint8').tolist()
         map_msg.info.origin = pose2toPose(grid.offset)
