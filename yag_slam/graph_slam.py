@@ -25,6 +25,18 @@ import numpy as np
 import time
 from yag_slam.serde import _serialize, _deserialize
 
+class Timer(object):
+    def __init__(self, name=None):
+        self.name = name
+
+    def __enter__(self):
+        self.tstart = time.time()
+
+    def __exit__(self, type, value, traceback):
+        if self.name:
+            print('[%s]' % self.name,)
+        print('Elapsed: %s' % (time.time() - self.tstart))
+
 
 # The below violates encapsulation in the worst possible way
 def make_near_scan_visitor(distance):
@@ -49,6 +61,7 @@ class GraphSlam2D(object):
             min_response_coarse=0.35,
             min_response_fine=0.45):
 
+        config_dict_loop.update({"search_size": loop_search_dist})
         self.scan_config = config
         self.seq_matcher = Wrapper(make_config(config_dict_seq))
         self.loop_matcher = Wrapper(make_config(config_dict_loop))
@@ -180,9 +193,12 @@ class GraphSlam2D(object):
 
         closed = False
 
+        start = time.time()
+
         for chain in chains:
             # coarse
-            res_coarse = self.loop_matcher.match_scan(scan, chain, False, False)
+            with Timer("coarse check"):
+                res_coarse = self.loop_matcher.match_scan(scan, chain, False, False)
             # resp 0.35 for coarse, 0.4 for fine?
             # covar 3.0 for coarse?????
             if res_coarse.response < self.min_response_coarse:
@@ -192,11 +208,12 @@ class GraphSlam2D(object):
             if res_coarse.covariance[0][0] > 3.0 or res_coarse.covariance[1][1] > 3.0:
                 print("WARN: covariance too high for coarse")
 
-            p = res_coarse.best_pose
-            tmpscan = LocalizedRangeScan(self.scan_config, scan.ranges, Pose2(p.x, p.y, p.yaw), Pose2(p.x, p.y, p.yaw),
-                                         scan.num, scan.time)
+            with Timer('fine check'):
+                p = res_coarse.best_pose
+                tmpscan = LocalizedRangeScan(self.scan_config, scan.ranges, Pose2(p.x, p.y, p.yaw), Pose2(p.x, p.y, p.yaw),
+                                            scan.num, scan.time)
 
-            res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
+                res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
             if res.response < self.min_response_fine:
                 print("not good fine response {}".format(res.response))
@@ -204,27 +221,33 @@ class GraphSlam2D(object):
 
             scan.corrected_pose = res.best_pose
 
-            self.link_to_closest_scan_in_chain(scan,
-                                               chain,
-                                               res.best_pose,
-                                               res.covariance,
-                                               supl={
-                                                   'coarse': res_coarse,
-                                                   'fine': res
-                                               })
+            with Timer('scan linking'):
+                self.link_to_closest_scan_in_chain(scan,
+                                                chain,
+                                                res.best_pose,
+                                                res.covariance,
+                                                supl={
+                                                    'coarse': res_coarse,
+                                                    'fine': res
+                                                })
 
             closed = True
 
+        if len(chains):
+            search_time = time.time()-start
+            print("loop closure search took {} and success was {} for {} chains".format(search_time, closed, len(chains)))
+
         if closed:
-            print("successful loop closure")
-            begin = time.time()
-            self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
-            print("opt took {} seconds".format(time.time() - begin))
+            with Timer('pose update'):
+                print("successful loop closure")
+                begin = time.time()
+                self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
+                print("opt took {} seconds".format(time.time() - begin))
 
-            for node, vtx in zip(self.opt.nodes, self.graph.vertices):
-                vtx.obj.corrected_pose = Pose2(node.x, node.y, node.yaw)
+                for node, vtx in zip(self.opt.nodes, self.graph.vertices):
+                    vtx.obj.corrected_pose = Pose2(node.x, node.y, node.yaw)
 
-            self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
+                self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
 
         return closed
 
@@ -273,13 +296,15 @@ class GraphSlam2D(object):
         query.num = last_scan.num + 1
         # Initialize starting location for matching
 
-        odom_diff = (Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
+        with Timer("poses"):
+            odom_diff = (Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
 
-        sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
+            sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
 
-        query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
+            query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
 
-        res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
+        with Timer("mathing"):
+            res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
         query.corrected_pose = (res.best_pose)
 
         # add to graph
@@ -287,7 +312,6 @@ class GraphSlam2D(object):
         self.add_edges(query, res.covariance)
 
         closed = self.try_to_close_loop(query)
-        # closed = False
 
         self.running_scans.append(query)
         self.running_scans = self.running_scans[-self.scan_buffer_len:]
