@@ -4,11 +4,45 @@ from yag_slam.graph_slam import GraphSlam2D, make_near_scan_visitor
 from yag_slam.graph import do_breadth_first_traversal
 from yag_slam_cpp import (LocalizedRangeScan, LaserScanConfig, Wrapper, Pose2, create_occupancy_grid)
 from tiny_tf.tf import Transform
+from tiny_tf.transformations import euler_from_quaternion, quaternion_from_euler
 from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Pose, TransformStamped
+from nav_msgs.msg import OccupancyGrid
 import tf2_ros
 from collections import namedtuple
+import time
+import cv2
+from threading import Thread
+from Queue import Queue
 
-class YAGSlamRos1(object):
+
+def tftopose2(msg):
+    t = msg.transform.translation
+    r = msg.transform.rotation
+    return Pose2(t.x, t.y, euler_from_quaternion((r.x, r.y, r.z, r.w))[-1])
+
+def pose2toPose(pose):
+    p = Pose()
+    q = p.orientation
+    q.x, q.y, q.z, q.w = quaternion_from_euler(0, 0, 0)
+    p.position.x = pose.x
+    p.position.y = pose.y
+    return p
+
+
+def TransformToTfTransform(xform):
+    t = TransformStamped()
+    t.header.stamp = rospy.Time.now()  # ???
+    t.header.frame_id = 'map'
+    t.child_frame_id = 'odom'
+    ts = t.transform.translation
+    ts.x = xform.x; ts.y = xform.y
+    tr = t.transform.rotation
+    tr.x, tr.y, tr.z, tr.w = xform.quaternion
+    return t
+
+
+class YAGSlamRos1(Thread):
     def __init__(self, odom_frame="odom", map_frame="map",
                  min_distance=0.5, min_rotation=0.5,
                  scan_buffer_len=10,
@@ -17,9 +51,10 @@ class YAGSlamRos1(object):
                  min_response_coarse=0.35,
                  min_response_fine=0.35,
                  range_threshold=12):
-        self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
+        Thread.__init__(self)
         self.setup = False
         self.tfb = tf2_ros.Buffer()
+        self.tbr = tf2_ros.TransformBroadcaster()
         self.tfl = tf2_ros.TransformListener(self.tfb)
         self.odom_frame = odom_frame
         self.map_frame = map_frame
@@ -35,6 +70,18 @@ class YAGSlamRos1(object):
         self.scan_config = None
         self.mapper = None
         self.last_pose = None
+        self.scans = []
+
+        self.map_pub = rospy.Publisher("/map", OccupancyGrid)
+        self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
+
+        self.queue = Queue()
+        self.map_queue = Queue()
+        self.daemon = True
+        self.map_thread = Thread(target=self._send_map)
+        self.map_thread.daemon = True
+        self.map_thread.start()
+        self.start()
 
     def setup_mapper(self, msg):
         self.scan_config = LaserScanConfig(
@@ -48,15 +95,66 @@ class YAGSlamRos1(object):
             min_response_coarse=self.min_response_coarse,
             min_response_fine=self.min_response_fine)
 
+    def _send_map(self):
+        while True:
+            self.map_queue.get()
+            grid = create_occupancy_grid([v.obj for v in self.mapper.graph.vertices], 0.1, self.range_threshold)
+            im = grid.image
+            map_msg = OccupancyGrid()
+            map_msg.info.resolution = 0.1
+            map_msg.info.height, map_msg.info.width,  = im.shape
+            map_msg.data = (100-im.flatten()/255.0*100).astype('uint8').tolist()
+            map_msg.info.origin = pose2toPose(grid.offset)
+            self.map_pub.publish(map_msg)
+
+    def run(self):
+        map_counter = 0
+        while True:
+            msg, pose = self.queue.get()
+            # TODO set flip ranges based on scan TF
+            res, closed = self.mapper.process_scan(msg, pose.x, pose.y, pose.yaw, flip_ranges=True)
+
+            map_counter += 1
+            if (map_counter >= 10 or closed) and self.map_queue.qsize() == 0:
+                self.map_queue.put(True)
+                map_counter = 0
+
     def process_scan(self, msg):
         if not self.mapper:
             self.setup_mapper(msg)
 
-        t = self.tfb.lookup_transform(
-            'base_footprint', self.odom_frame, msg.header.stamp)
+        try:
+            t = self.tfb.lookup_transform(
+                self.odom_frame, 'base_footprint', msg.header.stamp)
+        except Exception:
+            # print("{}: tf failed".format(time.time()))
+            return
 
-        print(t)
-        pass
+        pose = tftopose2(t)
+
+
+        if self.mapper.running_scans:
+            ls = self.mapper.running_scans[-1]
+            map_to_odom = TransformToTfTransform((Transform.from_pose2d(ls.corrected_pose) - Transform.from_pose2d(ls.odom_pose)))
+            map_to_odom = TransformToTfTransform(Transform(0, 0, 0, 0, 0, 0, 1))
+
+            self.tbr.sendTransform(map_to_odom)
+
+
+        if not self.last_pose:
+            self.last_pose = pose
+        else:
+            p = pose
+            l = self.last_pose
+            if ((p.x - l.x)**2 + (p.y - l.y)**2 < self.min_distance**2 and
+                abs(p.yaw - l.yaw) < self.min_rotation):
+                # print("{}: not far enough".format(time.time()))
+                return
+            self.last_pose = pose
+
+        if self.queue.qsize():
+            print("{}: current queue size {}".format(time.time(), self.queue.qsize()))
+        self.queue.put((msg, pose))
 
 
 if __name__ == '__main__':
