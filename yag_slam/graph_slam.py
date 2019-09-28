@@ -306,6 +306,7 @@ class GraphSlam2D(object):
         with Timer("mathing"):
             res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
         query.corrected_pose = (res.best_pose)
+        print(query.corrected_pose, query.odom_pose)
 
         # add to graph
         self.add_vertex(query)
