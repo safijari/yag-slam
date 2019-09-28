@@ -8,12 +8,13 @@ from tiny_tf.transformations import euler_from_quaternion, quaternion_from_euler
 import tf2_geometry_msgs
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Pose, TransformStamped
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid, MapMetaData
+from nav_msgs.srv import GetMapResponse, GetMap
 import tf2_ros
 from collections import namedtuple
 import time
 import cv2
-from threading import Thread
+from threading import Thread, Lock
 from Queue import Queue
 
 
@@ -31,11 +32,11 @@ def pose2toPose(pose):
     return p
 
 
-def TransformToTfTransform(xform):
+def TransformToTfTransform(xform, frame_id, child_frame_id):
     t = TransformStamped()
-    t.header.stamp = rospy.Time.now()  # ???
-    t.header.frame_id = 'map'
-    t.child_frame_id = 'odom'
+    t.header.stamp = rospy.Time.now()
+    t.header.frame_id = frame_id
+    t.child_frame_id = child_frame_id
     ts = t.transform.translation
     ts.x = xform.x; ts.y = xform.y
     tr = t.transform.rotation
@@ -74,8 +75,10 @@ class YAGSlamRos1(Thread):
         self.scans = []
 
         self.map_pub = rospy.Publisher("/map", OccupancyGrid)
+        self.map_meta_pub = rospy.Publisher("/map_metadata", MapMetaData)
         self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
-        self.map_to_odom = None
+        self.map_srv = rospy.Service('dynamic_map', GetMap, self._map_callback)
+
 
         self.queue = Queue()
         self.map_queue = Queue()
@@ -97,26 +100,36 @@ class YAGSlamRos1(Thread):
             min_response_coarse=self.min_response_coarse,
             min_response_fine=self.min_response_fine)
 
+    def _map_callback(self, req):
+        resp = GetMapResponse()
+        resp.map = self._make_map()
+        return resp
+
+    def _make_map(self, msg=True):
+        grid = create_occupancy_grid([v.obj for v in self.mapper.graph.vertices], 0.05, self.range_threshold)
+        im = grid.image
+        if not msg:
+            return im
+        map_msg = OccupancyGrid()
+        map_msg.info.resolution = 0.05
+        map_msg.info.height, map_msg.info.width,  = grid.height, grid.width
+        map_msg.data = (100-im.flatten()/255.0*100).astype('uint8').tolist()
+        map_msg.info.origin = pose2toPose(grid.offset)
+        map_msg.header.frame_id = self.map_frame
+        return map_msg
+
     def _send_map(self):
         while True:
             self.map_queue.get()
-            grid = create_occupancy_grid([v.obj for v in self.mapper.graph.vertices], 0.05, self.range_threshold)
-            im = grid.image
-            map_msg = OccupancyGrid()
-            map_msg.info.resolution = 0.05
-            map_msg.info.height, map_msg.info.width,  = grid.height, grid.width
-            map_msg.data = (100-im.flatten()/255.0*100).astype('uint8').tolist()
-            map_msg.info.origin = pose2toPose(grid.offset)
-            map_msg.header.frame_id = 'map'
+            map_msg = self._make_map()
             self.map_pub.publish(map_msg)
+            self.map_meta_pub.publish(map_msg.info)
 
     def run(self):
         map_counter = 0
         while True:
             msg, pose = self.queue.get()
-            # TODO set flip ranges based on scan TF
             res, closed = self.mapper.process_scan(msg, pose.x, pose.y, pose.yaw, flip_ranges=True)
-
 
             map_counter += 1
             if (map_counter >= 10 or closed) and self.map_queue.qsize() == 0:
@@ -127,11 +140,10 @@ class YAGSlamRos1(Thread):
         if not self.mapper:
             self.setup_mapper(msg)
 
-
         if self.mapper.running_scans:
             ls = self.mapper.running_scans[-1]
             odom_to_map = (Transform.from_pose2d(ls.odom_pose) + Transform.from_pose2d(ls.corrected_pose).inverse())
-            self.tbr.sendTransform(TransformToTfTransform(odom_to_map.inverse()))
+            self.tbr.sendTransform(TransformToTfTransform(odom_to_map.inverse(), self.map_frame, self.odom_frame))
 
 
         try:
@@ -152,7 +164,6 @@ class YAGSlamRos1(Thread):
                 abs(p.yaw - l.yaw) < self.min_rotation):
                 return
             self.last_pose = pose
-
 
         if self.queue.qsize():
             print("{}: current queue size {}".format(time.time(), self.queue.qsize()))
