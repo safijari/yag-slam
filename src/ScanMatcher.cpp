@@ -141,18 +141,17 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
   // compute how far to search in each direction
   Vector2<double> searchDimensions(m_pSearchSpaceProbs->GetWidth(),
                                       m_pSearchSpaceProbs->GetHeight());
+
   Vector2<double> coarseSearchOffset(
       0.5 * (searchDimensions.GetX() - 1) * m_pCorrelationGrid->GetResolution(),
       0.5 * (searchDimensions.GetY() - 1) *
           m_pCorrelationGrid->GetResolution());
 
-  
   // a coarse search only checks half the cells in each dimension
   Vector2<double> coarseSearchResolution(
       2 * m_pCorrelationGrid->GetResolution(),
       2 * m_pCorrelationGrid->GetResolution());
 
-  
   // actual scan-matching
   double bestResponse =
       CorrelateScan(pScan, scanPose, coarseSearchOffset, coarseSearchResolution,
@@ -160,7 +159,6 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
                     config->m_pCoarseAngleResolution, doPenalize,
                     rMean, rCovariance, false);
 
-  
   if (config->m_pUseResponseExpansion == true) {
     if (amath::DoubleEqual(bestResponse, 0.0)) {
 #ifdef KARTO_DEBUG
@@ -194,7 +192,6 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
     }
   }
 
-  
   if (doRefineMatch) {
     Vector2<double> fineSearchOffset(coarseSearchResolution * 0.5);
     Vector2<double> fineSearchResolution(
