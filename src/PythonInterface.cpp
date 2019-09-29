@@ -19,6 +19,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <vector>
+#include <iostream>
 
 #include "Grid.h"
 #include "LocalizedRangeScan.h"
@@ -51,10 +52,8 @@ public:
     py::gil_scoped_release release;
     Pose2 mean;
     Matrix3 covariance;
-
     auto ret = this->matcher->MatchScan(query, base, mean, covariance, penalize,
                                         refine);
-
     return MatchResult{mean, covariance, ret};
   }
 
@@ -193,8 +192,14 @@ PYBIND11_MODULE(yag_slam_cpp, m) {
                        auto r = _r.mutable_unchecked<2>();
                        for (auto j = 0; j < h; j++) {
                          for (auto i = 0; i < w; i++) {
+                           // free was 255
+                           // occupied was 100
+                           // unknown was 0
                            auto val = a.GetValue(Vector2<int32_t>(w - i - 1, j));
                            if (val == 0) { val = 200; } else if (val == 100) { val = 0; }
+                           // free is 255
+                           // unknown is 200
+                           // occupied is 0
                            r(j, w - i - 1) = val;
                          }
                        }

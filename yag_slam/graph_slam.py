@@ -33,9 +33,10 @@ class Timer(object):
         self.tstart = time.time()
 
     def __exit__(self, type, value, traceback):
+        msg = ""
         if self.name:
-            print('[%s]' % self.name,)
-        print('Elapsed: %s' % (time.time() - self.tstart))
+            msg += '[%s]' % self.name + " "
+        # print(msg + 'Elapsed: %s' % (time.time() - self.tstart))
 
 
 # The below violates encapsulation in the worst possible way
@@ -283,6 +284,8 @@ class GraphSlam2D(object):
         return chains
 
     def process_scan(self, scan, x, y, yaw, flip_ranges=True):
+        # query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), Pose2(x, y, yaw),
+        #                            Pose2(x, y, yaw), 0, 0.0)
         query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), Pose2(x, y, yaw),
                                    Pose2(x, y, yaw), 0, 0.0)
 
@@ -303,10 +306,10 @@ class GraphSlam2D(object):
 
             query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
 
-        with Timer("mathing"):
+        with Timer("matching"):
             res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
         query.corrected_pose = (res.best_pose)
-        print(query.corrected_pose, query.odom_pose)
+        # print(query.corrected_pose, query.odom_pose)
 
         # add to graph
         self.add_vertex(query)
