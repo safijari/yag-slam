@@ -52,14 +52,6 @@ def _p(name, default):
 
 
 class YAGSlamRos1(Thread):
-    # def __init__(self, odom_frame="odom", map_frame="map",
-    #              min_distance=0.5, min_rotation=0.5,
-    #              scan_buffer_len=10,
-    #              loop_search_distance=6.0,
-    #              loop_search_min_chain_size=10,
-    #              min_response_coarse=0.35,
-    #              min_response_fine=0.35,
-    #              range_threshold_for_map=12):
     def __init__(self):
         Thread.__init__(self)
         self.setup = False
@@ -142,16 +134,16 @@ class YAGSlamRos1(Thread):
 
     def _make_map(self, msg=True):
         grid = create_occupancy_grid([v.obj for v in self.mapper.graph.vertices], self.map_resolution, self.range_threshold_for_map)
-        im = grid.image
+        im = grid.image.astype('int16')
+        im[im == 0] = 100
+        im[im == 200] = -1
+        im[im == 255] = 0
         if not msg:
             return im
         map_msg = OccupancyGrid()
         map_msg.info.resolution = self.map_resolution
         map_msg.info.height, map_msg.info.width,  = grid.height, grid.width
-        map_msg.data = (100-im.flatten()/255.0*100).astype('int8').tolist()
-        # free is 0
-        # occupied is 100
-        # unknown is wrong
+        map_msg.data = im.flatten().astype('int8').tolist()
         map_msg.info.origin = pose2toPose(grid.offset)
         map_msg.header.frame_id = self.map_frame
         return map_msg
@@ -182,8 +174,8 @@ class YAGSlamRos1(Thread):
             t = self.tfb.lookup_transform(
                 self.odom_frame, 'base_footprint', msg.header.stamp)
         except Exception:
-            traceback.print_exc()
-            # print("{}: tf failed".format(time.time()))
+            # traceback.print_exc()
+            print("{}: tf failed".format(time.time()))
             return
 
         if self.mapper.running_scans:
