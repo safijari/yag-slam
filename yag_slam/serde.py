@@ -15,9 +15,9 @@
 
 from collections import namedtuple
 import json
-from mp_slam import make_config
+from yag_slam import make_config
 from yag_slam_cpp import ScanMatcherConfig, Pose2, LocalizedRangeScan, LaserScanConfig, Wrapper
-from mp_slam.graph import LinkLabel
+from yag_slam.graph import LinkLabel
 
 SerdeConfig = namedtuple('SerdeConfig', ['cls', 'variables', 'factory'])
 NAME = '___name'

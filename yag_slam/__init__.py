@@ -23,7 +23,7 @@ def print_config(config):
     for name in dir(config):
         if '_' == name[0]:
             continue
-        print(f"{name}: {config.__getattribute__(name)}")
+        print("{}: {}".format(name, config.__getattribute__(name)))
 
 
 default_config = {
