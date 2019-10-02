@@ -189,6 +189,7 @@ class GraphSlam(object):
 
             if res_coarse.covariance[0][0] > 3.0 or res_coarse.covariance[1][1] > 3.0:
                 print("WARN: covariance too high for coarse")
+                return
 
             p = res_coarse.best_pose
 
@@ -280,7 +281,7 @@ class GraphSlam(object):
         query.corrected_pose = sm_correction
 
         res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
-        query.corrected_pose = (res.best_pose)
+        query.corrected_pose = res.best_pose
 
         # add to graph
         self.add_vertex(query)
