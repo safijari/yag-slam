@@ -189,7 +189,6 @@ class GraphSlam(object):
 
             if res_coarse.covariance[0][0] > 3.0 or res_coarse.covariance[1][1] > 3.0:
                 print("WARN: covariance too high for coarse")
-                return
 
             p = res_coarse.best_pose
 
