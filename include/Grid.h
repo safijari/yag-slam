@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include <cstring>
+#include <iostream>
 
 #include "AdditionalMath.h"
 #include "Functor.h"
@@ -120,6 +121,7 @@ public:
         error << "Index " << rGrid
               << " out of range.  Index must be between [0; " << m_Width
               << ") and [0; " << m_Height << ")";
+        std::cout << error.str() << std::endl;
         throw error.str();
       }
     }
