@@ -21,6 +21,7 @@
 #include "ScanMatcher.h"
 #include "AdditionalMath.h"
 #include <stdio.h>
+#include "CorrelationGrid.h"
 
 ScanMatcher::~ScanMatcher() {
   delete m_pCorrelationGrid;

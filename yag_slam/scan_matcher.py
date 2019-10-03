@@ -71,7 +71,7 @@ class Scan2DMatcher(object):
     def match_scan(self, query, base_scans, penalty=True, do_fine=True):
         search_size = self.search_size
         resolution = self.resolution
-        smear_deviation = 0.03
+        smear_deviation = 0.1
         angle_size = self.angle_size
         angle_res = self.angle_res
         range_threshold = self.range_threshold
@@ -100,7 +100,7 @@ class Scan2DMatcher(object):
             cgrid, query.ranges, query.min_angle, query.max_angle,
             query.corrected_pose.x, query.corrected_pose.y,
             query.corrected_pose.euler[-1], ox, oy, search_size*0.5,
-            resolution * 2, angle_size, angle_res, resolution,
+            resolution, angle_size * 0.5, angle_res, resolution,
             self.range_threshold, penalty)
 
         # if do_fine and False:
@@ -195,7 +195,7 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
     out = np.zeros((len(xvals), len(yvals), len(tvals)))
     penalty = np.zeros((len(xvals), len(yvals), len(tvals)))
 
-    for k in range(len(tvals)):
+    for k in prange(len(tvals)):
         xx, yy = _project_2d_scan(ranges, 0, 0, tvals[k], min_angle, max_angle, range_threshold)
         for j in range(len(yvals)):
             for i in range(len(xvals)):
@@ -233,29 +233,33 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
     kk = (m%(t*th))%th
 
     response = out[ii, jj, kk]
-    print(response, penalty[ii, jj, kk])
+    # print(response, penalty[ii, jj, kk])
     response = response * penalty[ii, jj, kk]
 
     bx = 0
     by = 0
     bt = 0
-    total_poses = 0
+    # total_poses = 0
 
     out_ = np.where(out >= response - 0.1)
+
+    norm_ = 0.0
 
     for idx in range(len(out_[0])):
         i = out_[0][idx]
         j = out_[1][idx]
         k = out_[2][idx]
-        bx += xvals[i]
-        by += yvals[j]
-        bt += tvals[k]
-        total_poses += 1.0
+        res = out[i, j, k]
+        p = penalty[i, j, k]
+        bx += xvals[i]*res*p
+        by += yvals[j]*res*p
+        bt += tvals[k]*res*p
+        norm_ += (res*p)
 
     # print(total_poses)
-    bx /= total_poses
-    by /= total_poses
-    bt /= total_poses
+    bx /= norm_
+    by /= norm_
+    bt /= norm_
 
     # print(bx, by, bt)
     # print(xvals[ii], yvals[jj], tvals[kk])
@@ -287,7 +291,7 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
     for ii_ in range(len(xvals)):
         for jj_ in range(len(yvals)):
             res_ = out[ii_, jj_, kk]
-            if res_ < response - 0.1:
+            if res_ < response - 0.2:
                 continue
             x_ = xvals[ii_]
             y_ = yvals[jj_]
@@ -300,8 +304,10 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
     th_norm = 0.0
     for kk_ in range(len(tvals)):
         res_ = out[ii, jj, kk_]
+        if res_ < response - 0.3:
+            continue
         t_ = tvals[kk_]
         th_norm += res_
         TH += res_*(t_ - bt)**2
 
-    return [response, bx, by, bt, XX/norm/response, YY/norm/response, XY/norm/response, TH/th_norm/response]
+    return [response, bx, by, bt, max(XX/norm/response, 0.1*projection_res), max(YY/norm/response, 0.1*projection_res), XY/norm/response, max(angle_res**2, TH/th_norm/response)]
