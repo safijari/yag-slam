@@ -7,7 +7,7 @@ from collections import defaultdict, namedtuple
 
 
 ScanMatcherResult = namedtuple('ScanMatcherResult',
-                               ['response', 'covariance', 'best_pose'])
+                               ['response', 'covariance', 'best_pose', 'meta'])
 
 
 class LocalizedRangeScan:
@@ -27,6 +27,39 @@ class LocalizedRangeScan:
         p = self.corrected_pose
         return LocalizedRangeScan(self.ranges.copy(), self.min_angle, self.max_angle, p.x, p.y, p.euler[-1])
 
+@njit
+def validate_points(ptsx, ptsy, vpx, vpy):
+    # pts are known to not be NAN
+    msd = 0.2**2
+    retx = []
+    rety = []
+    fpx = ptsx[0]
+    fpy = ptsy[0]
+
+    tmpx = [0.0]
+    tmpy = [0.0]
+
+    for i in range(1, len(ptsx)):
+        cpx = ptsx[i]
+        cpy = ptsy[i]
+
+        tmpx.append(cpx)
+        tmpy.append(cpy)
+
+        if (fpx - cpx)**2 + (fpy - cpy)**2 > msd:
+            a = vpy - fpy
+            b = fpx - vpx
+            c = fpy * vpx - fpx * vpy
+            fpx = cpx
+            fpy = cpy
+            ss = cpx * a + cpy * b + c
+            if ss > 0.0:
+                retx.extend(tmpx[1:])
+                rety.extend(tmpy[1:])
+            tmpx = [0.0]
+            tmpy = [0.0]
+    return retx, rety
+
 class Scan2DMatcher(object):
     def __init__(self, search_size=0.5, resolution=0.01, angle_size=0.349, angle_res=0.0349, range_threshold=12):
         self.search_size = search_size
@@ -38,6 +71,7 @@ class Scan2DMatcher(object):
     def match_scan(self, query, base_scans, penalty=True, do_fine=True):
         search_size = self.search_size
         resolution = self.resolution
+        smear_deviation = 0.03
         angle_size = self.angle_size
         angle_res = self.angle_res
         range_threshold = self.range_threshold
@@ -50,28 +84,46 @@ class Scan2DMatcher(object):
         oy = query.corrected_pose.y - 0.5*(hh - 1)*resolution
 
         for scan in base_scans:
-            gx, gy = world_to_grid(scan.points(), ox, oy, resolution)
-            gx = gx.astype('int32')
-            gy = gy.astype('int32')
-            add_scan_to_grid(gx, gy, cgrid)
+            ptsx, ptsy = scan.points()
 
-        res, x, y, t, xx, yy, xy, th = find_best_pose(cgrid, query.ranges, query.min_angle, query.max_angle,
-                            query.corrected_pose.x, query.corrected_pose.y, query.corrected_pose.euler[-1],
-                            ox, oy, search_size, resolution*2, angle_size, angle_res, resolution)
+            ptsx, ptsy = validate_points(ptsx, ptsy, query.corrected_pose.x, query.corrected_pose.y)
 
-        if do_fine:
-            res, x, y, t, xx_, yy_, xy_, th = find_best_pose(cgrid, query.ranges, query.min_angle, query.max_angle,
-                                x, y, t,
-                                ox, oy, resolution*2, resolution, angle_size*0.1, angle_res*0.5, resolution)
+            gx, gy = world_to_grid((np.array(ptsx), np.array(ptsy)), ox, oy, resolution)
+            gx = np.round(gx).astype('int32')
+            gy = np.round(gy).astype('int32')
+            kernel = add_scan_to_grid(gx, gy, cgrid, resolution, smear_deviation)
 
-        return ScanMatcherResult(res, np.array([[xx, xy, 0], [xy, yy, 0], [0, 0, th]]),
-                                 Transform.from_position_euler(x, y, 0, 0, 0, t))
+        # cgrid = cv2.dilate(cgrid, np.ones((3, 3)))
+        # cgrid = cv2.GaussianBlur(cgrid, (15, 15), 15)
+
+        res, x, y, t, xx, yy, xy, th = find_best_pose(
+            cgrid, query.ranges, query.min_angle, query.max_angle,
+            query.corrected_pose.x, query.corrected_pose.y,
+            query.corrected_pose.euler[-1], ox, oy, search_size*0.5,
+            resolution * 2, angle_size, angle_res, resolution,
+            self.range_threshold, penalty)
+
+        # if do_fine and False:
+        #     res, x_, y_, t, xx_, yy_, xy_, th = find_best_pose(
+        #         cgrid, query.ranges, query.min_angle, query.max_angle, x,
+        #         y, t, ox, oy, resolution, resolution,
+        #         angle_res * 0.5, angle_res * 0.1, resolution, self.range_threshold, penalty)
+
+        meta = None
+        meta = {'grid': cgrid, 'kernel': kernel}
+        covar = np.array([[xx, xy, 0], [xy, yy, 0], [0, 0, th]])
+        # covar = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+
+        return ScanMatcherResult(res, covar,
+                                 Transform.from_position_euler(x, y, 0, 0, 0, t),
+                                 meta)
 
 
 @njit(nogil=True)
-def _project_2d_scan(ranges_, xx, yy, rr, min_angle, max_angle):
+def _project_2d_scan(ranges_, xx, yy, rr, min_angle, max_angle, range_threshold=12):
     ranges = ranges_.copy()
-    ranges[np.abs(ranges) > 12] = 0
+    ranges[np.abs(ranges) > range_threshold] = 0
     ranges[np.isnan(ranges)] = 0
     angle_min = min_angle
     angle_max = max_angle
@@ -94,34 +146,57 @@ def world_to_grid(xy, ox, oy, res):
     return (xy[0]-ox)/res, (xy[1]-oy)/res
 
 @njit(nogil=True)
-def add_scan_to_grid(gx, gy, cgrid):
+def calculate_kernel(res, smear_deviation):
+    size = int(2 * np.round(smear_deviation/res) + 1)
+    kernel = np.zeros((size, size))
+    half_size = int(size/2)
+    for i_ in range(size):
+        i = i_ - half_size
+        for j_ in range(size):
+            j = j_ - half_size
+            sqdist = (i*res)**2 + (j*res)**2
+            kernel[i_, j_] = np.exp(-0.5 * sqdist / (smear_deviation**2))
+    return kernel
+
+@njit(nogil=True)
+def add_scan_to_grid(gx, gy, cgrid, res, smear_deviation):
     h, w = cgrid.shape
+    kernel = calculate_kernel(res, smear_deviation)
+    size = kernel.shape[0]
+    half_size = int(size/2)
     for i in range(len(gx)):
         x_ = gx[i]
         y_ = gy[i]
-        for sx in [-3, -2, -1, 0, 1, 2, 3]:
-            for sy in [-3, -2, -1, 0, 1, 2, 3]:
-                x = x_ + sx
-                y = y_ + sy
+        for sx in range(size):
+            for sy in range(size):
+                x = x_ + (sx - half_size)
+                y = y_ + (sy - half_size)
                 if x >= 0 and x < w and y >=0 and y < h:
-                    candidate = 1.0 / ((sx**2 + sy **2)*0.1 + 1)
+                    candidate = kernel[sy, sx]
                     curr = cgrid[y, x]
                     if candidate > curr:
                         cgrid[y, x] = candidate
+    return kernel
 
 
 @njit(parallel=True, nogil=True)
-def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, search_size, reso, angle_size, angle_res, projection_res):
-    xvals = np.arange(-search_size/2 + cx, search_size/2 + cx, reso)
-    yvals = np.arange(-search_size/2 + cy, search_size/2 + cy, reso)
-    tvals = np.arange(-angle_size/2 + ct, angle_size/2 + ct, angle_res)
+def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, search_size, reso, angle_size, angle_res, projection_res, range_threshold, do_penalize):
+    xvals = np.arange(-search_size + cx, search_size + cx, reso)
+    yvals = np.arange(-search_size + cy, search_size + cy, reso)
+    tvals = np.arange(-angle_size + ct, angle_size + ct, angle_res)
+
+    dist_var_penalty = 0.5
+    ang_var_penalty = 1.0
+    min_ang_penalty = 0.9
+    min_dist_penalty = 1.0
 
     h, w = cgrid.shape
 
     out = np.zeros((len(xvals), len(yvals), len(tvals)))
+    penalty = np.zeros((len(xvals), len(yvals), len(tvals)))
 
-    for k in prange(len(tvals)):
-        xx, yy = _project_2d_scan(ranges, 0, 0, tvals[k], min_angle, max_angle)
+    for k in range(len(tvals)):
+        xx, yy = _project_2d_scan(ranges, 0, 0, tvals[k], min_angle, max_angle, range_threshold)
         for j in range(len(yvals)):
             for i in range(len(xvals)):
                 x = xx.copy() + xvals[i]
@@ -129,10 +204,24 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
                 gx, gy = world_to_grid((x, y), ox, oy, projection_res)
                 res = 0.0
                 for l in range(len(gx)):
-                    _x = gx[l]
-                    _y = gy[l]
+                    _x = np.round(gx[l])
+                    _y = np.round(gy[l])
                     if _x >= 0 and _x < w and _y >=0 and _y < h:
                         res += float(cgrid[int(_y), int(_x)])
+
+                penalty_val = 0.5
+                if do_penalize:
+                    squared_dist = (xvals[i] - cx)**2 + (yvals[j] - cy)**2
+                    dist_penalty = 1.0 - 0.2*squared_dist/dist_var_penalty
+                    dist_penalty = max(dist_penalty, min_dist_penalty)
+
+                    squared_ang_dist = (tvals[k] - ct)**2
+                    ang_penalty = 1.0 - 0.2 * squared_ang_dist / ang_var_penalty
+                    ang_penalty = max(ang_penalty, min_ang_penalty)
+
+                    penalty_val = (dist_penalty * ang_penalty)
+
+                penalty[i, j, k] = penalty_val
                 out[i, j, k] = res/len(gx)
 
     m = np.argmax(out)
@@ -144,9 +233,36 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
     kk = (m%(t*th))%th
 
     response = out[ii, jj, kk]
-    bx = xvals[ii]
-    by = yvals[jj]
-    bt = tvals[kk]
+    print(response, penalty[ii, jj, kk])
+    response = response * penalty[ii, jj, kk]
+
+    bx = 0
+    by = 0
+    bt = 0
+    total_poses = 0
+
+    out_ = np.where(out >= response - 0.1)
+
+    for idx in range(len(out_[0])):
+        i = out_[0][idx]
+        j = out_[1][idx]
+        k = out_[2][idx]
+        bx += xvals[i]
+        by += yvals[j]
+        bt += tvals[k]
+        total_poses += 1.0
+
+    # print(total_poses)
+    bx /= total_poses
+    by /= total_poses
+    bt /= total_poses
+
+    # print(bx, by, bt)
+    # print(xvals[ii], yvals[jj], tvals[kk])
+
+    # bx = xvals[ii]
+    # by = yvals[jj]
+    # bt = tvals[kk]
 
     # how to compute variance
     """
@@ -171,7 +287,7 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
     for ii_ in range(len(xvals)):
         for jj_ in range(len(yvals)):
             res_ = out[ii_, jj_, kk]
-            if res_ < response - 1:
+            if res_ < response - 0.1:
                 continue
             x_ = xvals[ii_]
             y_ = yvals[jj_]
@@ -189,4 +305,3 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, cx, cy, ct, ox, oy, sear
         TH += res_*(t_ - bt)**2
 
     return [response, bx, by, bt, XX/norm/response, YY/norm/response, XY/norm/response, TH/th_norm/response]
-
