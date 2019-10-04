@@ -102,7 +102,7 @@ class YAGSlamRos1(Thread):
             "distance_variance_penalty": _p("~distance_variance_penalty", 0.5),
             "coarse_search_angle_offset": _p("~coarse_search_angle_offset", 0.349),
             "coarse_angle_resolution": _p("~coarse_angle_resolution", 0.0349),
-            "fine_search_angle_offset": _p("~fine_search_angle_offset", 0.00349),
+            "fine_search_angle_resolution": _p("~fine_search_angle_resolution", 0.00349),
             "use_response_expansion": _p("~use_response_expansion", True),
             "range_threshold": _p("~range_threshold", 30),
             "minimum_angle_penalty": _p("~minimum_angle_penalty", 0.9),
