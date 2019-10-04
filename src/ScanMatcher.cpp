@@ -193,15 +193,19 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
     }
   }
 
-  if (doRefineMatch) {
-    Vector2<double> fineSearchOffset(coarseSearchResolution * 0.5);
+  // if (doRefineMatch) {
+  if (true) {
+    // 3.49e-05, 0.01745
+
+        Vector2<double>
+            fineSearchOffset(coarseSearchResolution * 0.5);
     Vector2<double> fineSearchResolution(
         m_pCorrelationGrid->GetResolution(),
         m_pCorrelationGrid->GetResolution());
     bestResponse =
         CorrelateScan(pScan, rMean, fineSearchOffset, fineSearchResolution,
                       0.5 * config->m_pCoarseAngleResolution,
-                      config->m_pFineSearchAngleOffset,
+                      config->m_pFineSearchAngleResolution,
                       doPenalize, rMean, rCovariance, true);
   }
 

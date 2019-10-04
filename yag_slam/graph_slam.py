@@ -36,7 +36,7 @@ class Timer(object):
         msg = ""
         if self.name:
             msg += '[%s]' % self.name + " "
-        # print(msg + 'Elapsed: %s' % (time.time() - self.tstart))
+        print(msg + 'Elapsed: %s' % (time.time() - self.tstart))
 
 
 # The below violates encapsulation in the worst possible way
@@ -299,17 +299,14 @@ class GraphSlam2D(object):
         query.num = last_scan.num + 1
         # Initialize starting location for matching
 
-        with Timer("poses"):
-            odom_diff = (Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
+        odom_diff = (Transform.from_pose2d(query.odom_pose) - Transform.from_pose2d(last_scan.odom_pose))
 
-            sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
+        sm_correction = Transform.from_pose2d(last_scan.corrected_pose) + odom_diff
 
-            query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
+        query.corrected_pose = (Pose2(sm_correction.x, sm_correction.y, sm_correction.euler[-1]))
 
-        with Timer("matching"):
-            res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
+        res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
         query.corrected_pose = (res.best_pose)
-        # print(query.corrected_pose, query.odom_pose)
 
         # add to graph
         self.add_vertex(query)

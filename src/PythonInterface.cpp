@@ -153,8 +153,8 @@ PYBIND11_MODULE(yag_slam_cpp, m) {
                      &ScanMatcherConfig::m_pCoarseAngleResolution)
       .def_readwrite("coarse_search_angle_offset",
                      &ScanMatcherConfig::m_pCoarseSearchAngleOffset)
-      .def_readwrite("fine_search_angle_offset",
-                     &ScanMatcherConfig::m_pFineSearchAngleOffset)
+      .def_readwrite("fine_search_angle_resolution",
+                     &ScanMatcherConfig::m_pFineSearchAngleResolution)
       .def_readwrite("distance_variance_penalty",
                      &ScanMatcherConfig::m_pDistanceVariancePenalty)
       .def_readwrite("angle_variance_penalty",
