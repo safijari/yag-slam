@@ -193,6 +193,7 @@ class GraphSlam(object):
             p = res_coarse.best_pose
 
             tmpscan = scan.copy()
+            tmpscan.corrected_pose = p
 
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
