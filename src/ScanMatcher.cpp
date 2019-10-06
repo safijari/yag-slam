@@ -193,12 +193,8 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
     }
   }
 
-  // if (doRefineMatch) {
-  if (true) {
-    // 3.49e-05, 0.01745
-
-        Vector2<double>
-            fineSearchOffset(coarseSearchResolution * 0.5);
+  if (doRefineMatch) {
+    Vector2<double> fineSearchOffset(coarseSearchResolution * 0.5);
     Vector2<double> fineSearchResolution(
         m_pCorrelationGrid->GetResolution(),
         m_pCorrelationGrid->GetResolution());
