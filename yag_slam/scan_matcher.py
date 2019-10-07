@@ -74,8 +74,10 @@ class LocalizedRangeScan:
 
     def points(self, odom=False):
         p = self.corrected_pose if not odom else self.odom_pose
-        xx, yy = _get_point_readings(self.ranges, p.x, p.y, p.euler[-1], self.min_angle, 0.0, self.angle_increment)
-        return (xx, yy)
+        return _get_point_readings(self.ranges, p.x, p.y, p.euler[-1], self.min_angle, 0.0, self.angle_increment, self.range_threshold)
+
+    def points_local(self):
+        return _get_point_readings(self.ranges, 0, 0, 0, self.min_angle, 0.0, self.angle_increment, self.range_threshold)
 
     def copy(self):
         p = self.corrected_pose
@@ -156,7 +158,7 @@ class Scan2DMatcher(object):
         for scan in base_scans:
             ptsx, ptsy = scan.points()
 
-            # ptsx, ptsy = validate_points(ptsx, ptsy, query.corrected_pose.x, query.corrected_pose.y)
+            ptsx, ptsy = validate_points(ptsx, ptsy, query.corrected_pose.x, query.corrected_pose.y)
 
             gx, gy = world_to_grid((np.array(ptsx), np.array(ptsy)), ox, oy, resolution)
             gx = gx.astype('int32')
@@ -164,20 +166,17 @@ class Scan2DMatcher(object):
 
             add_scan_to_grid(gx, gy, cgrid, kernel)
 
+        pts_local = query.points_local()
+
         res, x, y, t, xx, yy, xy, th = find_best_pose(
-            cgrid, query.ranges, query.min_angle, query.max_angle,
-            query.angle_increment,
-            query.corrected_pose.x, query.corrected_pose.y,
+            cgrid, pts_local, query.corrected_pose.x, query.corrected_pose.y,
             query.corrected_pose.euler[-1], ox, oy, search_size*0.5,
-            resolution*2, angle_size*0.5, angle_res, resolution,
-            self.range_threshold, penalty)
+            resolution*2, angle_size*0.5, angle_res, resolution, penalty)
 
         if do_fine:
-            res, x_, y_, t, xx_, yy_, xy_, th = find_best_pose(
-                cgrid, query.ranges, query.min_angle, query.max_angle,
-                query.angle_increment, x,
-                y, t, ox, oy, resolution*2, resolution,
-                0.0349*0.5, 0.00349, resolution, self.range_threshold, penalty)
+            res, x, y, t, xx_, yy_, xy_, th = find_best_pose(
+                cgrid, pts_local, x, y, t, ox, oy, resolution*2, resolution,
+                0.0349*0.5, 0.00349, resolution, penalty)
         else:
             th = 4 * angle_res
 
@@ -224,6 +223,11 @@ def _get_point_readings(ranges_, xx, yy, rr, min_angle, max_angle, angle_increme
     return np.array(xvals), np.array(yvals)
 
 @njit(nogil=True)
+def _rotate_points(ptsx, ptsy, angle):
+    return (ptsx * np.cos(angle) - ptsy * np.sin(angle),
+            ptsy * np.cos(angle) + ptsx * np.sin(angle))
+
+@njit(nogil=True)
 def world_to_grid(xy, ox, oy, res):
     return np.round((xy[0]-ox)/res, 0, np.empty_like(xy[0])), np.round((xy[1]-oy)/res, 0, np.empty_like(xy[0]))
 
@@ -258,15 +262,46 @@ def add_scan_to_grid(gx, gy, cgrid, kernel):
                     if candidate > curr:
                         cgrid[y, x] = candidate
 
+@njit(nogil=True)
+def score_points_on_grid(cgrid, ptsx, ptsy, ox, oy, grid_resolution, scaling_factor=100, intify=True):
+    h, w = cgrid.shape
+    x, y = ptsx, ptsy
+    gx, gy = world_to_grid((x, y), ox, oy, grid_resolution)
+    res = 0.0
+    for l in range(len(gx)):
+        _x = int(gx[l])
+        _y = int(gy[l])
+        if _x >= 0 and _x < w and _y >= 0 and _y < h:
+            additive = scaling_factor*float(cgrid[_y, _x])
+            if intify:
+                additive = int(additive)
+            res += additive
+    return res
+
 
 @njit(parallel=True, nogil=True)
-def find_best_pose(cgrid, ranges, min_angle, max_angle, angle_incr, cx, cy, ct, ox, oy, search_size, reso, angle_size, angle_res, projection_res, range_threshold, do_penalize):
-    sx_ = ox + cgrid.shape[0]*projection_res/2
-    sy_ = oy + cgrid.shape[1]*projection_res/2
+def find_best_pose(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size, xy_resolution, angle_search_size, angle_resolution, grid_resolution, penalize_distance_from_center):
+    """
+    cgrid is the correlation grid, essentially an image where occupied space is 1.0 and the rest are 0 (or transitions between those numbers)
+    local_frame_points is a tuple of (pts_y, pts_y), these are lidar points where the robot pose is 0, 0, 0
+    cx, cy, ct are the 2D pose of the center of the search area (also center of cgrid)
+    ox, oy are offsets that describe that lower left (upper left?) corner of cgrid in robot/world space
+    xy_search_size is the vertical and horizontal offset from the center of the grid that poses will be searched
+    xy_resolution is the physical resolution of this search
+    angle_search_size and resolution are the same things as xy... but for angles
+    grid_resolution is the actual resolution of cgrid
+    penalize_distance_from_center is a boolean that controls if estimates far away from center should be higher cost
+    """
+    ptsx, ptsy = local_frame_points
 
-    xvals = np.arange(-search_size + cx, search_size + cx, reso)
-    yvals = np.arange(-search_size + cy, search_size + cy, reso)
-    tvals = np.arange(-angle_size + ct, angle_size + ct, angle_res)
+    # Center of grid in real coordinates
+    sx_ = ox + cgrid.shape[0]*grid_resolution/2
+    sy_ = oy + cgrid.shape[1]*grid_resolution/2
+
+    # Pose search arrays
+    xvals = np.arange(-xy_search_size + cx, xy_search_size + cx, xy_resolution)
+    yvals = np.arange(-xy_search_size + cy, xy_search_size + cy, xy_resolution)
+    tvals = np.arange(-angle_search_size + ct, angle_search_size + ct, angle_resolution)
 
     dist_var_penalty = 0.5
     ang_var_penalty = 1.0
@@ -275,35 +310,31 @@ def find_best_pose(cgrid, ranges, min_angle, max_angle, angle_incr, cx, cy, ct, 
 
     h, w = cgrid.shape
 
+    # 3D array to hold pose scores
     out = np.ones((len(xvals), len(yvals), len(tvals)))*-1
 
     for k in prange(len(tvals)):
-        xx, yy = _get_point_readings(ranges, 0, 0, tvals[k], min_angle, 0.0, angle_incr, 1000)
+        xx, yy = _rotate_points(ptsx, ptsy, tvals[k])
         for i in range(len(xvals)):
             for j in range(len(yvals)):
                 x = xvals[i] + xx
                 y = yvals[j] + yy
-                gx, gy = world_to_grid((x, y), ox, oy, projection_res)
-                res = 0.0
-                for l in range(len(gx)):
-                    _x = int(gx[l])
-                    _y = int(gy[l])
-                    if _x >= 0 and _x < w and _y >= 0 and _y < h:
-                        res += int(100*float(cgrid[_y, _x]))
+
+                res = score_points_on_grid(cgrid, x, y, ox, oy, grid_resolution)
 
                 penalty_val = 1.0
-                if do_penalize:
+                if penalize_distance_from_center:
                     squared_dist = (xvals[i] - sx_)**2 + (yvals[j] - sy_)**2
-                    dist_penalty = 1.0 - 0.2*squared_dist/(dist_var_penalty*projection_res)
+                    dist_penalty = 1.0 - 0.2*squared_dist/(dist_var_penalty*grid_resolution)
                     # dist_penalty = max(dist_penalty, min_dist_penalty)
 
                     squared_ang_dist = (tvals[k] - ct)**2
-                    ang_penalty = 1.0 - 0.2 * squared_ang_dist / ang_var_penalty
+                    ang_penalty = 1.0 - 0.2 * squared_ang_dist / (ang_var_penalty*grid_resolution)
                     # ang_penalty = max(ang_penalty, min_ang_penalty)
 
                     penalty_val = (dist_penalty * ang_penalty)
 
-                out[i, j, k] = res/len(ranges)*penalty_val/100.0
+                out[i, j, k] = res/len(ptsx)*penalty_val/100.0
 
     m = np.argmax(out)
 
