@@ -74,10 +74,13 @@ class LocalizedRangeScan:
 
     def points(self, odom=False):
         p = self.corrected_pose if not odom else self.odom_pose
-        return _get_point_readings(self.ranges, p.x, p.y, p.euler[-1], self.min_angle, 0.0, self.angle_increment, self.range_threshold)
+        return self.points_for_pose2d(p.x, p.y, p.euler[-1])
 
     def points_local(self):
-        return _get_point_readings(self.ranges, 0, 0, 0, self.min_angle, 0.0, self.angle_increment, self.range_threshold)
+        return self.points_for_pose2d(0, 0, 0)
+
+    def points_for_pose2d(self, x, y, t):
+        return _get_point_readings(self.ranges, x, y, t, self.min_angle, 0.0, self.angle_increment, self.range_threshold)
 
     def copy(self):
         p = self.corrected_pose
@@ -245,28 +248,32 @@ def calculate_kernel(res, smear_deviation):
     return kernel
 
 @njit(nogil=True)
-def add_scan_to_grid(gx, gy, cgrid, kernel):
+def smear_point(gx, gy, cgrid, kernel):
     h, w = cgrid.shape
     size = kernel.shape[0]
     half_size = int(size/2)
+
+    for sx in range(size):
+        for sy in range(size):
+            x = gx + (sx - half_size)
+            y = gy + (sy - half_size)
+            if x >= 0 and x < w and y >=0 and y < h:
+                candidate = kernel[sy, sx]
+                curr = cgrid[y, x]
+                if candidate > curr:
+                    cgrid[y, x] = candidate
+
+@njit(nogil=True)
+def add_scan_to_grid(gx, gy, cgrid, kernel):
     for i in range(len(gx)):
         x_ = gx[i]
         y_ = gy[i]
-        for sx in range(size):
-            for sy in range(size):
-                x = x_ + (sx - half_size)
-                y = y_ + (sy - half_size)
-                if x >= 0 and x < w and y >=0 and y < h:
-                    candidate = kernel[sy, sx]
-                    curr = cgrid[y, x]
-                    if candidate > curr:
-                        cgrid[y, x] = candidate
+        cgrid[y_, x_] = 1.0
+        smear_point(x_, y_, cgrid, kernel)
 
 @njit(nogil=True)
-def score_points_on_grid(cgrid, ptsx, ptsy, ox, oy, grid_resolution, scaling_factor=100, intify=True):
+def score_grid_points_on_grid(cgrid, gx, gy, scaling_factor=100, intify=True):
     h, w = cgrid.shape
-    x, y = ptsx, ptsy
-    gx, gy = world_to_grid((x, y), ox, oy, grid_resolution)
     res = 0.0
     for l in range(len(gx)):
         _x = int(gx[l])
@@ -277,6 +284,12 @@ def score_points_on_grid(cgrid, ptsx, ptsy, ox, oy, grid_resolution, scaling_fac
                 additive = int(additive)
             res += additive
     return res
+
+@njit(nogil=True)
+def score_world_points_on_grid(cgrid, ptsx, ptsy, ox, oy, grid_resolution, scaling_factor=100, intify=True):
+    x, y = ptsx, ptsy
+    gx, gy = world_to_grid((x, y), ox, oy, grid_resolution)
+    return score_grid_points_on_grid(cgrid, gx, gy, scaling_factor, intify)
 
 
 @njit(parallel=True, nogil=True)
@@ -320,7 +333,7 @@ def find_best_pose(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size
                 x = xvals[i] + xx
                 y = yvals[j] + yy
 
-                res = score_points_on_grid(cgrid, x, y, ox, oy, grid_resolution)
+                res = score_world_points_on_grid(cgrid, x, y, ox, oy, grid_resolution)
 
                 penalty_val = 1.0
                 if penalize_distance_from_center:
