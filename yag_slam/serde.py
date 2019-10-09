@@ -15,7 +15,7 @@
 
 from collections import namedtuple
 import json
-from yag_slam import make_config
+from yag_slam.helpers import make_config
 from yag_slam_cpp import ScanMatcherConfig, Pose2, LocalizedRangeScan, LaserScanConfig, Wrapper
 from yag_slam.graph import LinkLabel
 

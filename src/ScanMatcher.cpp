@@ -21,6 +21,7 @@
 #include "ScanMatcher.h"
 #include "AdditionalMath.h"
 #include <stdio.h>
+#include "CorrelationGrid.h"
 
 ScanMatcher::~ScanMatcher() {
   delete m_pCorrelationGrid;
@@ -200,7 +201,7 @@ double ScanMatcher::MatchScan(LocalizedRangeScan *pScan,
     bestResponse =
         CorrelateScan(pScan, rMean, fineSearchOffset, fineSearchResolution,
                       0.5 * config->m_pCoarseAngleResolution,
-                      config->m_pFineSearchAngleOffset,
+                      config->m_pFineSearchAngleResolution,
                       doPenalize, rMean, rCovariance, true);
   }
 

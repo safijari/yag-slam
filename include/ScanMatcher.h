@@ -27,7 +27,7 @@ public:
     :
     m_pCoarseAngleResolution(0.03490658503988659),
     m_pCoarseSearchAngleOffset(0.3490658503988659),
-    m_pFineSearchAngleOffset(0.003490658503988659),
+    m_pFineSearchAngleResolution(0.003490658503988659),
     m_pDistanceVariancePenalty(0.5),
     m_pAngleVariancePenalty(0.3490658503988659),
     m_pMinimumDistancePenalty(1.0),
@@ -42,7 +42,7 @@ public:
 
   double m_pCoarseAngleResolution;
   double m_pCoarseSearchAngleOffset;
-  double m_pFineSearchAngleOffset;
+  double m_pFineSearchAngleResolution;
   double m_pDistanceVariancePenalty;
   double m_pAngleVariancePenalty;
   double m_pMinimumDistancePenalty;
