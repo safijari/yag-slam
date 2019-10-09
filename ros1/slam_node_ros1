@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from yag_slam.graph_slam import GraphSlam2D, make_near_scan_visitor
+from yag_slam.graph_slam import GraphSlam, make_near_scan_visitor
 from yag_slam.graph import do_breadth_first_traversal
 from yag_slam_cpp import (LocalizedRangeScan, LaserScanConfig, Wrapper, Pose2, create_occupancy_grid)
 from tiny_tf.tf import Transform

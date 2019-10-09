@@ -259,8 +259,6 @@ class GraphSlam(object):
     def process_scan(self, scan):
         # Scan has corrected_pose, odom_pose, num, and whatever the matcher needs
         query = scan
-        # query = LocalizedRangeScan(self.scan_config, self._ranges_from_scan(scan, flip_ranges), Pose2(x, y, yaw),
-        #                            Pose2(x, y, yaw), 0, 0.0)
 
         if len(self.running_scans) == 0:
             query.num = 0
