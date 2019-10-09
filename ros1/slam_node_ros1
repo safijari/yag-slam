@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import rospy
-from yag_slam.graph_slam import GraphSlam2D, make_near_scan_visitor
+from yag_slam.graph_slam import GraphSlam, make_near_scan_visitor
+from yag_slam.scan_matching import Scan2DMatcherCpp
 from yag_slam.graph import do_breadth_first_traversal
-from yag_slam_cpp import (LocalizedRangeScan, LaserScanConfig, Wrapper, Pose2, create_occupancy_grid)
+from yag_slam_cpp import create_occupancy_grid, Pose2
+from yag_slam.models import LocalizedRangeScan
 from tiny_tf.tf import Transform
 from tiny_tf.transformations import euler_from_quaternion, quaternion_from_euler
 import tf2_geometry_msgs
@@ -92,17 +94,12 @@ class YAGSlamRos1(Thread):
         self.start()
 
     def setup_mapper(self, msg):
-        self.scan_config = LaserScanConfig(
-            msg.angle_min, msg.angle_max,
-            msg.angle_increment,
-            msg.range_min, msg.range_max, self.range_threshold_for_map, "")
-
         seq_scan_matcher_config = {
             "angle_variance_penalty": _p("~angle_variance_penalty", 1.0),
             "distance_variance_penalty": _p("~distance_variance_penalty", 0.5),
             "coarse_search_angle_offset": _p("~coarse_search_angle_offset", 0.349),
             "coarse_angle_resolution": _p("~coarse_angle_resolution", 0.0349),
-            "fine_search_angle_offset": _p("~fine_search_angle_offset", 0.00349),
+            "fine_search_angle_resolution": _p("~fine_search_angle_resolution", 0.00349),
             "use_response_expansion": _p("~use_response_expansion", True),
             "range_threshold": _p("~range_threshold", 30),
             "minimum_angle_penalty": _p("~minimum_angle_penalty", 0.9),
@@ -118,14 +115,15 @@ class YAGSlamRos1(Thread):
             "smear_deviation": _p("~loop_matching_smear_deviation", 0.03),
         })
 
-        self.mapper = GraphSlam2D(
-            self.scan_config, loop_search_dist=self.loop_search_distance,
+        seq_matcher = Scan2DMatcherCpp(config_dict=seq_scan_matcher_config)
+        loop_matcher = Scan2DMatcherCpp(config_dict=loop_scan_matcher_config, loop=True)
+
+        self.mapper = GraphSlam(
+            seq_matcher, loop_matcher,
             loop_search_min_chain_size=self.loop_search_min_chain_size,
             scan_buffer_len=self.scan_buffer_len,
             min_response_coarse=self.min_response_coarse,
-            min_response_fine=self.min_response_fine,
-            config_dict_seq=seq_scan_matcher_config,
-            config_dict_loop=loop_scan_matcher_config)
+            min_response_fine=self.min_response_fine)
 
     def _map_callback(self, req):
         resp = GetMapResponse()
@@ -133,7 +131,7 @@ class YAGSlamRos1(Thread):
         return resp
 
     def _make_map(self, msg=True):
-        grid = create_occupancy_grid([v.obj for v in self.mapper.graph.vertices], self.map_resolution, self.range_threshold_for_map)
+        grid = create_occupancy_grid([v.obj._scan for v in self.mapper.graph.vertices], self.map_resolution, self.range_threshold_for_map)
         im = grid.image.astype('int16')
         im[im == 0] = 100
         im[im == 200] = -1
@@ -159,7 +157,12 @@ class YAGSlamRos1(Thread):
         map_counter = 0
         while True:
             msg, pose = self.queue.get()
-            res, closed = self.mapper.process_scan(msg, pose.x, pose.y, pose.yaw, flip_ranges=True)
+
+            # TODO Flip ranges?
+            scan = LocalizedRangeScan(
+                msg.ranges[::-1], msg.angle_min, msg.angle_max, msg.angle_increment,
+                msg.range_min, msg.range_max, self.range_threshold, pose.x, pose.y, pose.yaw)
+            res, closed = self.mapper.process_scan(scan)
 
             map_counter += 1
             if (map_counter >= 10 or closed) and self.map_queue.qsize() == 0:
@@ -174,7 +177,6 @@ class YAGSlamRos1(Thread):
             t = self.tfb.lookup_transform(
                 self.odom_frame, 'base_footprint', msg.header.stamp)
         except Exception:
-            # traceback.print_exc()
             print("{}: tf failed".format(time.time()))
             return
 

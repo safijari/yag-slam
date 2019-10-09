@@ -36,10 +36,10 @@ struct MatchResult {
 
 class Wrapper {
   Name name;
-  ScanMatcher *matcher;
 
 public:
   std::shared_ptr<ScanMatcherConfig> config;
+  ScanMatcher *matcher;
 
   Wrapper(std::shared_ptr<ScanMatcherConfig> config) {
     this->config = config;
@@ -111,7 +111,24 @@ PYBIND11_MODULE(yag_slam_cpp, m) {
       .def(py::init<std::shared_ptr<ScanMatcherConfig>>())
       .def_readonly("config", &Wrapper::config)
       .def("match_scan", &Wrapper::MatchScan,
-           py::return_value_policy::reference);
+           py::return_value_policy::reference)
+    .def("grid", [](const Wrapper &a_) {
+                   auto a = a_.matcher->GetCorrelationGrid();
+                   auto roi = a->GetROI();
+                   auto h = roi.GetHeight();
+                   auto w = roi.GetWidth();
+                   auto _r = py::array_t<uint8_t>({h, w});
+                   auto r = _r.mutable_unchecked<2>();
+                   for (auto j = 0; j < h; j++) {
+                     for (auto i = 0; i < w; i++) {
+                       auto idx = a->GridIndex(Vector2<int32_t>(i, j));
+                       uint8_t *pByte = a->GetDataPointer() + idx;
+                       r(j, i) = pByte[0];
+                     }
+                   }
+                   return _r;
+                 }, py::return_value_policy::reference)
+    ;
 
   py::class_<MatchResult>(m, "MatchResult")
       .def_readwrite("best_pose", &MatchResult::best_pose)
@@ -136,8 +153,8 @@ PYBIND11_MODULE(yag_slam_cpp, m) {
                      &ScanMatcherConfig::m_pCoarseAngleResolution)
       .def_readwrite("coarse_search_angle_offset",
                      &ScanMatcherConfig::m_pCoarseSearchAngleOffset)
-      .def_readwrite("fine_search_angle_offset",
-                     &ScanMatcherConfig::m_pFineSearchAngleOffset)
+      .def_readwrite("fine_search_angle_resolution",
+                     &ScanMatcherConfig::m_pFineSearchAngleResolution)
       .def_readwrite("distance_variance_penalty",
                      &ScanMatcherConfig::m_pDistanceVariancePenalty)
       .def_readwrite("angle_variance_penalty",
