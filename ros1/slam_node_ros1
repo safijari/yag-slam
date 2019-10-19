@@ -26,6 +26,12 @@ def tftopose2(msg):
     r = msg.transform.rotation
     return Pose2(t.x, t.y, euler_from_quaternion((r.x, r.y, r.z, r.w))[-1])
 
+def tftoTransform(msg):
+    t = msg.transform.translation
+    r = msg.transform.rotation
+    return Transform(t.x, t.y, t.z, r.x, r.y, r.z, r.w)
+
+
 def pose2toPose(pose):
     p = Pose()
     q = p.orientation
@@ -63,6 +69,7 @@ class YAGSlamRos1(Thread):
 
         self.odom_frame = _p('~odom_frame', 'odom')
         self.map_frame = _p('~map_frame', 'map')
+        self.sensor_frame = _p('~sensor_frame', 'base_laser_link')
         self.min_distance = _p('~min_distance', 0.5)
         self.min_rotation = _p('~min_rotation', 0.5)
         self.loop_search_min_chain_size = _p('~loop_search_min_chain_size', 10)
@@ -156,13 +163,19 @@ class YAGSlamRos1(Thread):
     def run(self):
         map_counter = 0
         while True:
-            msg, pose = self.queue.get()
+            msg, pose, invert_scan = self.queue.get()
+            print(str(time.time()) + " got scan")
+
+            ranges = msg.ranges[::-1] if invert_scan else msg.ranges
 
             # TODO Flip ranges?
             scan = LocalizedRangeScan(
-                msg.ranges[::-1], msg.angle_min, msg.angle_max, msg.angle_increment,
+                ranges, msg.angle_min, msg.angle_max, msg.angle_increment,
                 msg.range_min, msg.range_max, self.range_threshold, pose.x, pose.y, pose.yaw)
             res, closed = self.mapper.process_scan(scan)
+
+            if len(self.mapper.running_scans) == 1:
+                self.map_queue.put(True)
 
             map_counter += 1
             if (map_counter >= 10 or closed) and self.map_queue.qsize() == 0:
@@ -175,8 +188,11 @@ class YAGSlamRos1(Thread):
 
         try:
             t = self.tfb.lookup_transform(
-                self.odom_frame, 'base_footprint', msg.header.stamp)
+                self.odom_frame, self.sensor_frame, msg.header.stamp, rospy.Duration(0.1))
+            # t = self.tfb.lookup_transform(
+            #     self.odom_frame, self.sensor_frame, rospy.Time(0))
         except Exception:
+            traceback.print_exc()
             print("{}: tf failed".format(time.time()))
             return
 
@@ -197,9 +213,13 @@ class YAGSlamRos1(Thread):
                 return
             self.last_pose = pose
 
+        # if the z of the below is -ve, then sensor is upside down
+        up_xform = tftoTransform(t) + Transform(0, 0, 100, 0, 0, 0, 1)
+
         if self.queue.qsize():
             print("{}: current queue size {}".format(time.time(), self.queue.qsize()))
-        self.queue.put((msg, pose))
+
+        self.queue.put((msg, pose, up_xform.z < 0))
 
 
 if __name__ == '__main__':
