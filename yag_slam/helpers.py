@@ -55,6 +55,11 @@ def _get_point_readings(ranges_, xx, yy, rr, min_angle, max_angle, angle_increme
     return np.array(xvals), np.array(yvals)
 
 
+def _transform_points(ptsx, ptsy, x, y, t):
+    xx, yy = _rotate_points(ptsx, ptsy, t)
+    return xx + x, yy + y
+
+
 @njit(nogil=True)
 def _rotate_points(ptsx, ptsy, angle):
     return (ptsx * np.cos(angle) - ptsy * np.sin(angle), ptsy * np.cos(angle) + ptsx * np.sin(angle))
@@ -80,6 +85,11 @@ def calculate_kernel(res, smear_deviation):
 
 
 @njit(nogil=True)
+def in_grid_bounds(x, y, w, h):
+    return (0 <= x < w) and (0 <= y < h)
+
+
+@njit(nogil=True)
 def smear_point(gx, gy, cgrid, kernel):
     h, w = cgrid.shape
     size = kernel.shape[0]
@@ -89,7 +99,7 @@ def smear_point(gx, gy, cgrid, kernel):
         for sy in range(size):
             x = gx + (sx - half_size)
             y = gy + (sy - half_size)
-            if x >= 0 and x < w and y >= 0 and y < h:
+            if in_grid_bounds(x, y, w, h):
                 candidate = kernel[sy, sx]
                 curr = cgrid[y, x]
                 if candidate > curr:
@@ -98,9 +108,12 @@ def smear_point(gx, gy, cgrid, kernel):
 
 @njit(nogil=True)
 def add_scan_to_grid(gx, gy, cgrid, kernel):
+    h, w = cgrid.shape
     for i in range(len(gx)):
         x_ = gx[i]
         y_ = gy[i]
+        if not in_grid_bounds(x_, y_, w, h):
+            continue
         cgrid[y_, x_] = 1.0
         smear_point(x_, y_, cgrid, kernel)
 
