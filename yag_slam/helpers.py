@@ -21,6 +21,18 @@ from collections import namedtuple
 
 
 @njit(nogil=True)
+def occupancy_grid_map_to_correlation_grid(map_im, res, smear_deviation=0.05, occupied_value=0):
+    V, U = np.where(map_im == occupied_value)
+    kernel = calculate_kernel(res, smear_deviation)
+    cgrid = np.zeros(map_im.shape)
+
+    for u, v in zip(U, V):
+        cgrid[v, u] = 1.0
+        smear_point(u, v, cgrid, kernel)
+
+    return cgrid
+
+@njit(nogil=True)
 def _project_2d_scan(ranges_, xx, yy, rr, min_angle, max_angle, range_threshold=12):
     ranges = ranges_.copy()
     ranges[np.abs(ranges) > range_threshold] = 0
@@ -404,3 +416,145 @@ class RadiusHashSearch(object):
                 all_elements.extend(elements)
 
         return all_elements
+
+
+@njit(parallel=False, nogil=True)
+def find_best_pose_non_symmetric(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size, xy_resolution, angle_search_size,
+                                 angle_resolution, grid_resolution, penalize_distance_from_center):
+    """
+    cgrid is the correlation grid, essentially an image where occupied space is 1.0 and the rest are 0 (or transitions between those numbers)
+    local_frame_points is a tuple of (pts_y, pts_y), these are lidar points where the robot pose is 0, 0, 0
+    cx, cy, ct are the 2D pose of the center of the search area (also center of cgrid)
+    ox, oy are offsets that describe that lower left (upper left?) corner of cgrid in robot/world space
+    xy_search_size is the vertical and horizontal offset from the center of the grid that poses will be searched
+    xy_resolution is the physical resolution of this search
+    angle_search_size and resolution are the same things as xy... but for angles
+    grid_resolution is the actual resolution of cgrid
+    penalize_distance_from_center is a boolean that controls if estimates far away from center should be higher cost
+    """
+    ptsx, ptsy = local_frame_points
+
+    # Center of grid in real coordinates
+    sx_ = cx
+    sy_ = cy
+
+    # Pose search arrays
+    xvals = np.arange(-xy_search_size + cx, xy_search_size + cx, xy_resolution)
+    yvals = np.arange(-xy_search_size + cy, xy_search_size + cy, xy_resolution)
+    tvals = np.arange(-angle_search_size + ct, angle_search_size + ct, angle_resolution)
+
+    dist_var_penalty = 0.5
+    ang_var_penalty = 1.0
+    min_ang_penalty = 0.9
+    min_dist_penalty = 1.0
+
+    h, w = cgrid.shape
+
+    # 3D array to hold pose scores
+    out = np.ones((len(xvals), len(yvals), len(tvals))) * -1
+
+    for k in prange(len(tvals)):
+        xx, yy = _rotate_points(ptsx, ptsy, tvals[k])
+        for i in range(len(xvals)):
+            for j in range(len(yvals)):
+                x = xvals[i] + xx
+                y = yvals[j] + yy
+
+                res = score_world_points_on_grid(cgrid, x, y, ox, oy, grid_resolution)
+
+                penalty_val = 1.0
+                if penalize_distance_from_center:
+                    squared_dist = (xvals[i] - sx_)**2 + (yvals[j] - sy_)**2
+                    dist_penalty = 1.0 - 0.2 * squared_dist / (dist_var_penalty * grid_resolution)
+                    # dist_penalty = max(dist_penalty, min_dist_penalty)
+
+                    squared_ang_dist = (tvals[k] - ct)**2
+                    ang_penalty = 1.0 - 0.2 * squared_ang_dist / (ang_var_penalty * grid_resolution)
+                    # ang_penalty = max(ang_penalty, min_ang_penalty)
+
+                    penalty_val = (dist_penalty * ang_penalty)
+
+                out[i, j, k] = res / len(ptsx) * penalty_val / 100.0
+
+    m = np.argmax(out)
+
+    o, t, th = out.shape
+
+    ii = m // (t * th)
+    jj = (m % (t * th)) // th
+    kk = (m % (t * th)) % th
+
+    response = out[ii, jj, kk]
+
+    bx = 0
+    by = 0
+    bt = 0
+    # total_poses = 0
+
+    out_ = np.where(out >= response - 0.00000001)
+
+    norm_ = 0.0
+
+    for idx in range(len(out_[0])):
+        i = out_[0][idx]
+        j = out_[1][idx]
+        k = out_[2][idx]
+        bx += xvals[i]
+        by += yvals[j]
+        bt += tvals[k]
+        norm_ += 1.0
+
+    bx /= norm_
+    by /= norm_
+    bt /= norm_
+
+    # how to compute variance
+    """
+    find dx and dy (bestpose - centerpose)
+    go over some x, y, theta points
+    for each, get response (maybe only keep it if it's close to bestresponse)
+    add response to norm
+    accumulate XX by adding (x - dx)**2*response, same for YY
+    accumulate XY by adding (y-dy)*(x-dx)*response
+
+    divide everyone by norm
+
+    maybe divide everyone by the best response
+    """
+
+    XX = 0
+    YY = 0
+    XY = 0
+    TH = 0
+    norm = 0.0
+
+    xs = max(0, ii - 5)
+    ys = max(0, jj - 5)
+    xe = min(len(xvals) - 1, ii + 6)
+    ye = min(len(yvals) - 1, jj + 6)
+
+    for ii_ in range(xs, xe):
+        for jj_ in range(ys, ye):
+            res_ = out[ii_, jj_, kk]
+            # if res_ < response - 0.1:
+            #     continue
+            x_ = xvals[ii_]
+            y_ = yvals[jj_]
+
+            norm += res_
+            XX += res_ * (x_ - bx)**2
+            YY += res_ * (y_ - by)**2
+            XY += (x_ - bx) * (y_ - by) * res_
+
+    th_norm = 0.0
+    ts = max(0, kk - 5)
+    te = min(len(tvals) - 1, kk + 6)
+    for kk_ in range(ts, te):
+        res_ = out[ii, jj, kk_]
+        # if res_ < response - 0.1:
+        #     continue
+        t_ = tvals[kk_]
+        th_norm += res_
+        TH += res_ * (t_ - bt)**2
+
+    return [response, bx, by, bt, XX / norm / response, YY / norm / response, XY / norm / response, TH / th_norm]
