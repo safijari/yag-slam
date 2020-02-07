@@ -91,3 +91,12 @@ class LocalizedRangeScan:
         p = self.corrected_pose
         return LocalizedRangeScan(self.ranges.copy(), self.min_angle, self.max_angle, self.angle_increment,
                                   self.min_range, self.max_range, self.range_threshold, p.x, p.y, p.euler[-1])
+
+
+    @classmethod
+    def from_json(cls, d, x, y, t, invert=True):
+        ranges = d['ranges']
+        if invert:
+            ranges = ranges[::-1]
+        return cls(ranges, d['angle_min'], d['angle_max'], d['angle_increment'], d['range_min'], d['range_max'],
+                   d['range_max']*0.9, x, y, t)
