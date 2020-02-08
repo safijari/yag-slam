@@ -177,6 +177,9 @@ class GraphSlam(object):
 
         closed = False
 
+        if not self.loop_matcher:
+            return closed
+
         for chain in chains:
             # coarse
             res_coarse = self.loop_matcher.match_scan(scan, chain, False, False)
