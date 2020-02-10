@@ -100,7 +100,7 @@ class YAGSlamRos1(Thread):
         self.base_map_meta_pub = rospy.Publisher("/base_map_metadata", MapMetaData)
         self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
         self.map_srv = rospy.Service('dynamic_map', GetMap, self._map_callback)
-        self.map_im = cv2.imread('/home/jari/Work/yag-slam-on-map/wm_west_chester_sep2.pgm')
+        self.map_im = cv2.imread(map_fname)
         self.cgrid = occupancy_grid_map_to_correlation_grid(self.map_im[::-1, :, 0], 0.05)
 
         self.queue = Queue()
