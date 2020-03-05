@@ -1,0 +1,19 @@
+name: build manylinux
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Initialize submodule
+      run: git submodule update --init --recursive
+    - name: Build in manylinux container
+      run: docker run --rm -v `pwd`:/repo --rm safijari/manylinux2010-x64 /repo/build.sh
+    - name: Tar up artifacts
+      run: tar -czf dist.tar.gz dist/
+    - uses: actions/upload-artifact@master
+      with:
+        name: dist
+        path: dist/
