@@ -23,6 +23,6 @@ execute_process(COMMAND python -c
 # set(pybind11_DIR /usr/lib/python3.7/site-packages/pybind11_cmake)
 include_directories(include)
 find_package(pybind11 REQUIRED)
-find_package(Boost COMPONENTS thread REQUIRED)
+# find_package(Boost COMPONENTS thread REQUIRED)
 pybind11_add_module(yag_slam_cpp src/PythonInterface.cpp src/Impls.cpp src/ScanMatcher.cpp)
-target_link_libraries(yag_slam_cpp PRIVATE Boost::thread)
+# target_link_libraries(yag_slam_cpp PRIVATE Boost::thread)

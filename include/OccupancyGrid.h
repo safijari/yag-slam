@@ -1,6 +1,7 @@
 #ifndef OCCUPANCY_GRID_H
 #define OCCUPANCY_GRID_H
 
+#include <cmath>
 #include "Vector2.h"
 #include "Grid.h"
 #include "Functor.h"
