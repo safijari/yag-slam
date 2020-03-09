@@ -26,7 +26,7 @@ from pybind11_cmake import CMakeExtension, CMakeBuild
 
 setup(
     name='yag_slam',
-    version='0.0.1',
+    version='0.1.0',
     author='Jariullah Safi',
     author_email='safijari@isu.edu',
     description=
