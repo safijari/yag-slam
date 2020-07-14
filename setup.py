@@ -45,7 +45,7 @@ Here are the rough goals of this project:
     ''',
     packages=find_packages(),
     install_requires=[
-        'sparse_bundle_adjustment', 'numpy', 'tiny_tf', 'open3d', 'numba'
+        'sparse_bundle_adjustment', 'numpy', 'tiny_tf', 'numba'
     ],
     setup_requires=['pybind11_cmake'],
     ext_modules=[CMakeExtension('yag_slam_cpp')],
