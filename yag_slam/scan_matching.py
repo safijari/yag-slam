@@ -15,9 +15,11 @@ ScanMatcherResult = namedtuple('ScanMatcherResult',
                                ['response', 'covariance', 'best_pose', 'meta'])
 
 class Scan2DMatcherCpp(object):
-    def __init__(self, config_dict={}, loop=False):
+    def __init__(self, config_dict=None, loop=False):
         cfg = default_config if not loop else default_config_loop
         cfg = cfg.copy()
+        if config_dict is None:
+            config_dict = {}
         cfg.update(config_dict)
         self._config = make_config(cfg)
         self._matcher = Wrapper(self._config)
@@ -25,6 +27,10 @@ class Scan2DMatcherCpp(object):
     def match_scan(self, query, base_scans, penalty=True, do_fine=False):
         res = self._matcher.match_scan(query._scan, [b._scan for b in base_scans], penalty, do_fine)
         return ScanMatcherResult(res.response, res.covariance, Transform.from_pose2d(res.best_pose), None)
+
+    @classmethod
+    def from_config_dict(cls, config_dict, loop=False):
+        return cls(config_dict)
 
 
 class Scan2DMatcher(object):
@@ -35,6 +41,11 @@ class Scan2DMatcher(object):
         self.angle_res = angle_res
         self.range_threshold = range_threshold
         self.smear_deviation = smear_deviation
+
+    @classmethod
+    def from_config_dict(cls, config_dict, loop=False):
+        d = config_dict
+        return cls(d["search_size"], d["resolution"], d["coarse_search_angle_offset"], d["coarse_angle_resolution"], d["range_threshold"], d["smear_deviation"])
 
 
     def match_scan_sets(self, query_scans, base_scans, penalty=True, do_fine=True):

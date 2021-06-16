@@ -281,6 +281,7 @@ class GraphSlam(object):
 
         res = self.seq_matcher.match_scan(query, self.running_scans, True, True)
         query.corrected_pose = res.best_pose
+        print("diff", (query.corrected_pose - sm_correction).euler)
 
         # add to graph
         self.add_vertex(query)

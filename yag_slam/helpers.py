@@ -20,7 +20,7 @@ from yag_slam_cpp import ScanMatcherConfig
 from collections import namedtuple
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def occupancy_grid_map_to_correlation_grid(map_im, res, smear_deviation=0.05, occupied_value=0):
     V, U = np.where(map_im == occupied_value)
     kernel = calculate_kernel(res, smear_deviation)
@@ -32,7 +32,7 @@ def occupancy_grid_map_to_correlation_grid(map_im, res, smear_deviation=0.05, oc
 
     return cgrid
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def _project_2d_scan(ranges_, xx, yy, rr, min_angle, max_angle, range_threshold=12):
     ranges = ranges_.copy()
     ranges[np.abs(ranges) > range_threshold] = 0
@@ -54,7 +54,7 @@ def _project_2d_scan(ranges_, xx, yy, rr, min_angle, max_angle, range_threshold=
     return xvals, yvals
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def _get_point_readings(ranges_, xx, yy, rr, min_angle, max_angle, angle_increment, range_threshold=12):
     xvals = []
     yvals = []
@@ -72,17 +72,17 @@ def _transform_points(ptsx, ptsy, x, y, t):
     return xx + x, yy + y
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def _rotate_points(ptsx, ptsy, angle):
     return (ptsx * np.cos(angle) - ptsy * np.sin(angle), ptsy * np.cos(angle) + ptsx * np.sin(angle))
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def world_to_grid(xy, ox, oy, res):
     return np.round((xy[0] - ox) / res, 0, np.empty_like(xy[0])), np.round((xy[1] - oy) / res, 0, np.empty_like(xy[0]))
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def calculate_kernel(res, smear_deviation):
     size = int(4 * np.round(smear_deviation / res) + 1)
     kernel = np.zeros((size, size))
@@ -96,12 +96,12 @@ def calculate_kernel(res, smear_deviation):
     return kernel
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def in_grid_bounds(x, y, w, h):
     return (0 <= x < w) and (0 <= y < h)
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def smear_point(gx, gy, cgrid, kernel):
     h, w = cgrid.shape
     size = kernel.shape[0]
@@ -118,7 +118,7 @@ def smear_point(gx, gy, cgrid, kernel):
                     cgrid[y, x] = candidate
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def add_scan_to_grid(gx, gy, cgrid, kernel):
     h, w = cgrid.shape
     for i in range(len(gx)):
@@ -130,7 +130,7 @@ def add_scan_to_grid(gx, gy, cgrid, kernel):
         smear_point(x_, y_, cgrid, kernel)
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def score_grid_points_on_grid(cgrid, gx, gy, scaling_factor=100, intify=True):
     h, w = cgrid.shape
     res = 0.0
@@ -145,14 +145,14 @@ def score_grid_points_on_grid(cgrid, gx, gy, scaling_factor=100, intify=True):
     return res
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def score_world_points_on_grid(cgrid, ptsx, ptsy, ox, oy, grid_resolution, scaling_factor=100, intify=True):
     x, y = ptsx, ptsy
     gx, gy = world_to_grid((x, y), ox, oy, grid_resolution)
     return score_grid_points_on_grid(cgrid, gx, gy, scaling_factor, intify)
 
 
-@njit(parallel=True, nogil=True)
+@njit(parallel=True, nogil=True, cache=True)
 def find_best_pose(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size, xy_resolution, angle_search_size,
                    angle_resolution, grid_resolution, penalize_distance_from_center):
     """
@@ -294,7 +294,7 @@ def find_best_pose(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size
     return [response, bx, by, bt, XX / norm / response, YY / norm / response, XY / norm / response, TH / th_norm]
 
 
-@njit
+@njit(cache=True)
 def validate_points(ptsx, ptsy, vpx, vpy):
     # pts are known to not be NAN
     msd = 0.2**2
@@ -431,7 +431,7 @@ class RadiusHashSearch(object):
         return all_elements
 
 
-@njit(parallel=False, nogil=True)
+@njit(parallel=False, nogil=True, cache=True)
 def find_best_pose_non_symmetric(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size, xy_resolution, angle_search_size,
                                  angle_resolution, grid_resolution, penalize_distance_from_center):
     """

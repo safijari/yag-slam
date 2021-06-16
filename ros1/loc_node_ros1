@@ -76,7 +76,7 @@ class YAGSlamRos1(Thread):
         self.tfl = tf2_ros.TransformListener(self.tfb)
 
         self.odom_frame = _p('~odom_frame', 'odom')
-        self.map_frame = _p('~map_frame', 'map')
+        self.map_frame = _p('~map_frame', 'map2')
         self.sensor_frame = _p('~sensor_frame', 'base_laser_link')
         self.min_distance = _p('~min_distance', 1.0)
         self.min_rotation = _p('~min_rotation', 0.5)

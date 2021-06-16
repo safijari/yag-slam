@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from yag_slam.graph_slam import GraphSlam, make_near_scan_visitor
-from yag_slam.scan_matching import Scan2DMatcherCpp
+from yag_slam.scan_matching import Scan2DMatcher as Scan2DMatcherCpp
 from yag_slam.graph import do_breadth_first_traversal
 from yag_slam_cpp import create_occupancy_grid, Pose2
 from yag_slam.models import LocalizedRangeScan
@@ -70,7 +70,7 @@ class YAGSlamRos1(Thread):
         self.odom_frame = _p('~odom_frame', 'odom')
         self.map_frame = _p('~map_frame', 'map')
         self.sensor_frame = _p('~sensor_frame', 'base_laser_link')
-        self.min_distance = _p('~min_distance', 0.5)
+        self.min_distance = _p('~min_distance', 1.0)
         self.min_rotation = _p('~min_rotation', 0.5)
         self.loop_search_min_chain_size = _p('~loop_search_min_chain_size', 10)
         self.loop_search_distance = _p('~loop_search_distance', 6.0)
@@ -102,13 +102,13 @@ class YAGSlamRos1(Thread):
 
     def setup_mapper(self, msg):
         seq_scan_matcher_config = {
-            "angle_variance_penalty": _p("~angle_variance_penalty", 1.0),
+            "angle_variance_penalty": _p("~angle_variance_penalty", 0.5),
             "distance_variance_penalty": _p("~distance_variance_penalty", 0.5),
             "coarse_search_angle_offset": _p("~coarse_search_angle_offset", 0.349),
             "coarse_angle_resolution": _p("~coarse_angle_resolution", 0.0349),
             "fine_search_angle_resolution": _p("~fine_search_angle_resolution", 0.00349),
             "use_response_expansion": _p("~use_response_expansion", True),
-            "range_threshold": _p("~range_threshold", 30),
+            "range_threshold": _p("~range_threshold", 12),
             "minimum_angle_penalty": _p("~minimum_angle_penalty", 0.9),
             "search_size": _p("~sequential_matching_search_size", 0.5),
             "resolution": _p("~sequential_matching_resolution", 0.01),
@@ -122,8 +122,8 @@ class YAGSlamRos1(Thread):
             "smear_deviation": _p("~loop_matching_smear_deviation", 0.03),
         })
 
-        seq_matcher = Scan2DMatcherCpp(config_dict=seq_scan_matcher_config)
-        loop_matcher = Scan2DMatcherCpp(config_dict=loop_scan_matcher_config, loop=True)
+        seq_matcher = Scan2DMatcherCpp.from_config_dict(config_dict=seq_scan_matcher_config)
+        loop_matcher = Scan2DMatcherCpp.from_config_dict(config_dict=loop_scan_matcher_config, loop=True)
 
         self.mapper = GraphSlam(
             seq_matcher, loop_matcher,
