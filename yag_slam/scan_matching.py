@@ -102,7 +102,7 @@ class Scan2DMatcher(object):
         diff = oxy_corrected - oxy
 
         return ScanMatcherResult(res, covar,
-                                 [q.corrected_pose + diff for q in query_scans],
+                                 [diff + q.corrected_pose for q in query_scans],
                                  meta)
 
     def match_scan_sets_with_map(self, cgrid, ox, oy, query_scans, penalty=True, do_fine=True):
