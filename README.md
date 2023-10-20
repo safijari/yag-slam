@@ -17,3 +17,7 @@ Underlying Graph
 
 Occupancy Grid Map
 ![occupancy grid map](https://user-images.githubusercontent.com/5191844/64672265-cffc3d80-d41f-11e9-915b-f984df9bb1d9.png)
+
+# Building for ros melodic
+- `pip install llvmlite==0.31.0 singledispatch funcsigs tiny_tf`
+- `pip install numba --no-deps`
