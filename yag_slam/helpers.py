@@ -334,29 +334,28 @@ def print_config(config):
             continue
         print("{}: {}".format(name, config.__getattribute__(name)))
 
-
 default_config = {
-    "angle_variance_penalty": 1.0,
-    "distance_variance_penalty": 0.5,
+    "angle_variance_penalty": 0.349,
+    "distance_variance_penalty": 0.3,
     "coarse_search_angle_offset": 0.349,
     "coarse_angle_resolution": 0.0349,
     "fine_search_angle_resolution": 0.00349,
     "use_response_expansion": True,
-    "range_threshold": 12,
+    "range_threshold": 20,
     "minimum_angle_penalty": 0.9,
-    "search_size": 0.5,
+    "search_size": 0.3,
     "resolution": 0.01,
-    "smear_deviation": 0.1,
+    "smear_deviation": 0.03,
 }
 
 default_config_loop = {
-    "angle_variance_penalty": 1.0,
-    "distance_variance_penalty": 0.5,
+    "angle_variance_penalty": 0.349,
+    "distance_variance_penalty": 0.3,
     "coarse_search_angle_offset": 0.349,
     "coarse_angle_resolution": 0.0349,
     "fine_search_angle_resolution": 0.00349,
     "use_response_expansion": True,
-    "range_threshold": 12,
+    "range_threshold": 20,
     "minimum_angle_penalty": 0.9,
     "resolution": 0.05,
     "search_size": 8.0,
