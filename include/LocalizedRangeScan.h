@@ -1,9 +1,9 @@
 #ifndef LOCALIZED_RANGE_SCAN_H
 #define LOCALIZED_RANGE_SCAN_H
 
-
-#include <mutex>
+#include <boost/thread.hpp>
 #include <shared_mutex>
+
 #include "Transform.h"
 #include "Vector2.h"
 #include "AdditionalMath.h"
@@ -191,7 +191,7 @@ public:
   virtual ~LocalizedRangeScan() {}
 
 private:
-  mutable std::shared_timed_mutex m_Lock;
+  mutable boost::shared_mutex m_Lock;
 
 public:
   /**
@@ -232,11 +232,11 @@ public:
    * Gets barycenter of point readings
    */
   inline const Pose2 &GetBarycenterPose() const {
-    std::shared_lock<std::shared_timed_mutex> lock(m_Lock);
+    boost::shared_lock<boost::shared_mutex> lock(m_Lock);
     if (m_IsDirty) {
       // throw away constness and do an update!
       lock.unlock();
-      std::unique_lock<std::shared_timed_mutex> uniqueLock(m_Lock);
+      boost::unique_lock<boost::shared_mutex> uniqueLock(m_Lock);
       const_cast<LocalizedRangeScan *>(this)->Update();
     }
 
@@ -248,11 +248,11 @@ public:
    * @return bounding box of this scan
    */
   inline const BoundingBox2 &GetBoundingBox() const {
-    std::shared_lock<std::shared_timed_mutex> lock(m_Lock);
+    boost::shared_lock<boost::shared_mutex> lock(m_Lock);
     if (m_IsDirty) {
       // throw away constness and do an update!
       lock.unlock();
-      std::unique_lock<std::shared_timed_mutex> uniqueLock(m_Lock);
+      boost::unique_lock<boost::shared_mutex> uniqueLock(m_Lock);
       const_cast<LocalizedRangeScan *>(this)->Update();
     }
 
@@ -264,11 +264,11 @@ public:
    */
   inline const PointVectorDouble &
   GetPointReadings(bool wantFiltered = false) const {
-    std::shared_lock<std::shared_timed_mutex> lock(m_Lock);
+    boost::shared_lock<boost::shared_mutex> lock(m_Lock);
     if (m_IsDirty) {
       // throw away constness and do an update!
       lock.unlock();
-      std::unique_lock<std::shared_timed_mutex> uniqueLock(m_Lock);
+      boost::unique_lock<boost::shared_mutex> uniqueLock(m_Lock);
       const_cast<LocalizedRangeScan *>(this)->Update();
     }
 
