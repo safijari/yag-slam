@@ -14,15 +14,29 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 cmake_minimum_required(VERSION 2.8.12)
-project(mp-slam)
-# Note: The lines below allows a pip install pybind11 to be found by cmake.
-#       Do not remove.
-execute_process(COMMAND python -c
-                "import pybind11_cmake; print(pybind11_cmake.__path__[0])"
-                OUTPUT_VARIABLE pybind11_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-# set(pybind11_DIR /usr/lib/python3.7/site-packages/pybind11_cmake)
-include_directories(include)
-find_package(pybind11 REQUIRED)
-# find_package(Boost COMPONENTS thread REQUIRED)
+project(yag_slam)
+
+find_package(catkin QUIET)
+
+if (catkin_FOUND)
+  include_directories(include)
+  catkin_package(
+    INCLUDE_DIRS include
+    )
+else()
+  include_directories(include)
+endif()
+
+add_subdirectory(pybind11)
+
+find_package(Boost COMPONENTS thread REQUIRED)
+
 pybind11_add_module(yag_slam_cpp src/PythonInterface.cpp src/Impls.cpp src/ScanMatcher.cpp)
-# target_link_libraries(yag_slam_cpp PRIVATE Boost::thread)
+target_link_libraries(yag_slam_cpp PRIVATE Boost::thread)
+
+if (catkin_FOUND)
+  install(TARGETS yag_slam_cpp
+    LIBRARY DESTINATION ${CATKIN_GLOBAL_PYTHON_DESTINATION}
+    )
+  install(DIRECTORY yag_slam DESTINATION ${CATKIN_GLOBAL_PYTHON_DESTINATION})
+endif()
