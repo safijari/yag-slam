@@ -91,7 +91,7 @@ class YAGSlamRos1(Thread):
         self.map_meta_pub = rospy.Publisher("/map_metadata", MapMetaData)
         self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
         self.map_srv = rospy.Service('dynamic_map', GetMap, self._map_callback)
-
+        self.last_map_update_time = time.time()
 
         self.queue = Queue()
         self.map_queue = Queue()
@@ -160,9 +160,9 @@ class YAGSlamRos1(Thread):
             map_msg = self._make_map()
             self.map_pub.publish(map_msg)
             self.map_meta_pub.publish(map_msg.info)
+            self.last_map_update_time = time.time()
 
     def run(self):
-        last_update_time = time.time()
         map_counter = 0
         while True:
             msg, pose, invert_scan = self.queue.get()
@@ -177,12 +177,10 @@ class YAGSlamRos1(Thread):
             print(res, closed)
 
             if len(self.mapper.running_scans) == 1:
-                last_update_time = time.time()
                 self.map_queue.put(True)
 
             map_counter += 1
-            if (map_counter >= 10 or closed or time.time() - last_update_time >= 10) and self.map_queue.qsize() == 0:
-                last_update_time = time.time()
+            if (map_counter >= 10 or closed or time.time() - last_map_update_time >= 10) and self.map_queue.qsize() == 0:
                 self.map_queue.put(True)
                 map_counter = 0
 
@@ -222,6 +220,9 @@ class YAGSlamRos1(Thread):
             print("{}: current queue size {}".format(time.time(), self.queue.qsize()))
 
         self.queue.put((msg, pose, up_xform.z < 0))
+
+        if (time.time() - self.last_map_update_time >= 10):
+            self.map_queue.put(True)
         # with open("/home/jari/Documents/lidar data/" + str(int(time.time())), "w") as ff:
         #     ff.write(json.dumps({"msg": str(msg), "pose": [pose.x, pose.y, pose.yaw]}))
 
