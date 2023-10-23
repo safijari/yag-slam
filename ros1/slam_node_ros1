@@ -180,7 +180,7 @@ class YAGSlamRos1(Thread):
                 self.map_queue.put(True)
 
             map_counter += 1
-            if (map_counter >= 10 or closed or time.time() - last_map_update_time >= 10) and self.map_queue.qsize() == 0:
+            if (map_counter >= 10 or closed) and self.map_queue.qsize() == 0:
                 self.map_queue.put(True)
                 map_counter = 0
 
