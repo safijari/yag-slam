@@ -77,7 +77,7 @@ class YAGSlamRos1(Thread):
         self.loop_search_distance = _p('~loop_search_distance', 6.0)
         self.min_response_coarse = _p('~min_response_coarse', 0.35)
         self.min_response_fine = _p('~min_response_fine', 0.45)
-        self.range_threshold_for_map = _p('~range_threshold_for_map', 5)
+        self.range_threshold_for_map = _p('~range_threshold_for_map', 12)
         self.range_threshold = _p('~range_threshold', 30)
         self.scan_buffer_len = _p('~scan_buffer_len', 10)
         self.map_resolution = _p('~map_resolution', 0.05)
@@ -180,7 +180,7 @@ class YAGSlamRos1(Thread):
                 self.map_queue.put(True)
 
             map_counter += 1
-            if (map_counter >= 10 or closed) and self.map_queue.qsize() == 0:
+            if (map_counter >= 5 or closed) and self.map_queue.qsize() == 0:
                 self.map_queue.put(True)
                 map_counter = 0
 
