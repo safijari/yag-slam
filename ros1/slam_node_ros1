@@ -87,7 +87,7 @@ class YAGSlamRos1(Thread):
         self.last_pose = None
         self.scans = []
 
-        self.map_pub = rospy.Publisher("/map", OccupancyGrid)
+        self.map_pub = rospy.Publisher("/map", OccupancyGrid, latch=True)
         self.map_meta_pub = rospy.Publisher("/map_metadata", MapMetaData)
         self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
         self.map_srv = rospy.Service('dynamic_map', GetMap, self._map_callback)
@@ -162,6 +162,7 @@ class YAGSlamRos1(Thread):
             self.map_meta_pub.publish(map_msg.info)
 
     def run(self):
+        last_update_time = time.time()
         map_counter = 0
         while True:
             msg, pose, invert_scan = self.queue.get()
@@ -176,10 +177,12 @@ class YAGSlamRos1(Thread):
             print(res, closed)
 
             if len(self.mapper.running_scans) == 1:
+                last_update_time = time.time()
                 self.map_queue.put(True)
 
             map_counter += 1
-            if (map_counter >= 10 or closed) and self.map_queue.qsize() == 0:
+            if (map_counter >= 10 or closed or time.time() - last_update_time >= 10) and self.map_queue.qsize() == 0:
+                last_update_time = time.time()
                 self.map_queue.put(True)
                 map_counter = 0
 
