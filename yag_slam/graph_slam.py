@@ -178,7 +178,7 @@ class GraphSlam(object):
         chains = self.find_possible_loop_closure_chains(scan)
 
         if len(chains) > 0:
-            print("ooh chains")
+            print("Found {} chains for loop closure".format(len(chains)))
 
         closed = False
 
@@ -186,6 +186,7 @@ class GraphSlam(object):
             return closed
 
         for chain in chains:
+            # TODO Need to pick the best chain for loop closure and quit once we have a reasonable closure
             # coarse
             res_coarse = self.loop_matcher.match_scan(scan, chain, False, False)
             # resp 0.35 for coarse, 0.4 for fine?
@@ -220,6 +221,7 @@ class GraphSlam(object):
                                                })
 
             closed = True
+            break
 
         if closed:
             print("successful loop closure")
