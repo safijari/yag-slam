@@ -92,7 +92,11 @@ class GraphSlam(object):
 
         vs = obj.graph.vertices
         for from_num, to_num, info in d['edges']:
-            obj.graph.add_edge(Edge(vs[from_num], vs[to_num], _deserialize(info)))
+            new_edge = Edge(vs[from_num], vs[to_num], _deserialize(info))
+            obj.graph.add_edge(new_edge)
+            diff = new_edge.info.mean
+            obj.opt.add_constraint(from_num, to_num, diff.x, diff.y, diff.euler[-1],
+                                    np.linalg.inv(np.array(new_edge.info.covariance)).tolist())
 
         obj.running_scans = [vs[i].obj for i in d['running_scans']]
 
@@ -219,16 +223,19 @@ class GraphSlam(object):
 
         if closed:
             print("successful loop closure")
-            begin = time.time()
-            self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
-            print("opt took {} seconds".format(time.time() - begin))
-
-            for node, vtx in zip(self.opt.nodes, self.graph.vertices):
-                vtx.obj.corrected_pose = Transform.from_pose2d(Pose2(node.x, node.y, node.yaw))
-
-            self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
+            self.run_opt()
 
         return closed
+
+    def run_opt(self):
+        begin = time.time()
+        self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
+        print("opt took {} seconds".format(time.time() - begin))
+
+        for node, vtx in zip(self.opt.nodes, self.graph.vertices):
+            vtx.obj.corrected_pose = Transform.from_pose2d(Pose2(node.x, node.y, node.yaw))
+
+        self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
 
     def find_possible_loop_closure_chains(self, scan):
         vert = self.graph.vertices[scan.num]
