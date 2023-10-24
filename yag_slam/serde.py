@@ -48,7 +48,6 @@ def _deserialize(d):
         if cfg.factory:
             dd = d.copy()
             del dd[NAME]
-            # print(dd)
             return cfg.factory(dd)
         return cfg.cls(*[_deserialize(d[v]) for v in cfg.variables])
     return d

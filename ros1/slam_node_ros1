@@ -169,12 +169,10 @@ class YAGSlamRos1(Thread):
 
             ranges = msg.ranges[::-1] if invert_scan else msg.ranges
 
-            # TODO Flip ranges?
             scan = LocalizedRangeScan(
                 ranges, msg.angle_min, msg.angle_max, msg.angle_increment,
                 msg.range_min, msg.range_max, self.range_threshold, pose.x, pose.y, pose.yaw)
             res, closed = self.mapper.process_scan(scan)
-            print(res, closed)
 
             if len(self.mapper.running_scans) == 1:
                 self.map_queue.put(True)
@@ -193,7 +191,7 @@ class YAGSlamRos1(Thread):
                 self.odom_frame, self.sensor_frame, msg.header.stamp, rospy.Duration(0.1))
         except Exception:
             traceback.print_exc()
-            print("{}: tf failed".format(time.time()))
+            print("Looking up tf for {} from {} failed at {}".format(self.sensor_frame, self.odom_frame, time.time()))
             return
 
         if self.mapper.running_scans:
@@ -216,13 +214,14 @@ class YAGSlamRos1(Thread):
         # if the z of the below is -ve, then sensor is upside down
         up_xform = tftoTransform(odom_to_sensor) + Transform(0, 0, 100, 0, 0, 0, 1)
 
-        if self.queue.qsize():
-            print("{}: current queue size {}".format(time.time(), self.queue.qsize()))
+        if self.queue.qsize() > 1:
+            print("{}: Current queue size {}".format(time.time(), self.queue.qsize()))
 
         self.queue.put((msg, pose, up_xform.z < 0))
 
-        if (time.time() - self.last_map_update_time >= 10):
+        if (time.time() - self.last_map_update_time >= 5):
             self.map_queue.put(True)
+
         # with open("/home/jari/Documents/lidar data/" + str(int(time.time())), "w") as ff:
         #     ff.write(json.dumps({"msg": str(msg), "pose": [pose.x, pose.y, pose.yaw]}))
 
