@@ -69,9 +69,9 @@ class GraphSlam(object):
         out['scans'] = [_serialize(v.obj) for v in self.graph.vertices]
         out['edges'] = [[e.source.obj.num, e.target.obj.num, _serialize(e.info)] for e in self.graph.edges]
         out['running_scans'] = [s.num for s in self.running_scans]
-        out['scan_config'] = _serialize(self.scan_config)
+        # out['scan_config'] = _serialize(self.scan_config)
         out['seq_matcher_config'] = _serialize(self.seq_matcher.config)
-        out['loop_matcher_config'] = _serialize(self.seq_matcher.config)
+        out['loop_matcher_config'] = _serialize(self.loop_matcher.config)
         out['scan_buffer_len'] = self.scan_buffer_len
         out['loop_search_dist'] = self.loop_search_dist
         out['loop_search_min_chain_size'] = self.loop_search_min_chain_size
@@ -81,7 +81,9 @@ class GraphSlam(object):
 
     @classmethod
     def deserialize(cls, d):
-        obj = cls(_deserialize(d['scan_config']), d['scan_buffer_len'],
+        obj = cls(
+            # _deserialize(d['scan_config']),
+                  d['scan_buffer_len'],
                   {k: v for k, v in d['seq_matcher_config'].items() if k != '___name'},
                   {k: v for k, v in d['loop_matcher_config'].items() if k != '___name'},
                   d['loop_search_dist'], d['loop_search_min_chain_size'],
