@@ -16,7 +16,8 @@
 from collections import namedtuple
 import json
 from yag_slam.helpers import make_config
-from yag_slam_cpp import ScanMatcherConfig, Pose2, LocalizedRangeScan, LaserScanConfig, Wrapper
+from yag_slam_cpp import ScanMatcherConfig, Pose2, LaserScanConfig, Wrapper
+from yag_slam.models import LocalizedRangeScan
 from yag_slam.graph import LinkLabel
 from tiny_tf.tf import Transform
 import numpy
@@ -47,6 +48,7 @@ def _deserialize(d):
         if cfg.factory:
             dd = d.copy()
             del dd[NAME]
+            # print(dd)
             return cfg.factory(dd)
         return cfg.cls(*[_deserialize(d[v]) for v in cfg.variables])
     return d
@@ -54,7 +56,7 @@ def _deserialize(d):
 
 _configs = {
     'LocalizedRangeScan':
-    SerdeConfig(LocalizedRangeScan, ['ranges', 'odom_pose', 'corrected_pose', 'num'], None),
+    SerdeConfig(LocalizedRangeScan, ["ranges", "min_angle", "max_angle", "angle_increment", "min_range", "max_range", "range_threshold", 'odom_pose', 'corrected_pose', 'num'], LocalizedRangeScan.deserialize),
     'Pose2':
     SerdeConfig(Pose2, ['x', 'y', 'yaw'], None),
     'LaserScanConfig':
