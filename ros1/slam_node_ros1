@@ -213,6 +213,8 @@ class YAGSlamRos1(Thread):
             if not self.mapper.running_scans and self.scans and self.initial_xform:
                 # first scan when splicing into a map
                 slam_fake = self.mapper
+                scan.odom_pose = self.initial_xform
+                self.initial_xform = None
                 nearby_scans = slam_fake.search.crude_radius_search(scan.corrected_pose, 1)
                 res = slam_fake.loop_matcher.match_scan(scan, [v.obj for v in nearby_scans], do_fine=True)
                 scan.corrected_pose = res.best_pose
