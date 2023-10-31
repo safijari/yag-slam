@@ -242,9 +242,11 @@ class GraphSlam(object):
     def find_possible_loop_closure_chains(self, scan):
         vert = self.graph.vertices[scan.num]
         near_linked_verts = set(do_breadth_first_traversal(vert, self.near_scan_visitor))
+        # print("found {} near_linked_verts".format(len(near_linked_verts)))
         chains = []
 
         vertices = self.search.crude_radius_search(scan.corrected_pose, self.loop_search_dist)
+        # print("found {} vertices".format(len(vertices)))
         vertices.sort(key=lambda v: v.obj.num)
 
         current_chain = []

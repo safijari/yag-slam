@@ -5,6 +5,7 @@ from yag_slam.scan_matching import Scan2DMatcherCpp
 from yag_slam.graph import do_breadth_first_traversal
 from yag_slam_cpp import create_occupancy_grid, Pose2
 from yag_slam.models import LocalizedRangeScan
+from yag_slam.splicing import map_to_graph
 from tiny_tf.tf import Transform
 from tiny_tf.transformations import euler_from_quaternion, quaternion_from_euler
 import tf2_geometry_msgs
@@ -20,6 +21,8 @@ from threading import Thread, Lock
 import traceback
 from queue import Queue
 import json
+import argh
+import yaml
 
 
 def tftopose2(msg):
@@ -61,7 +64,7 @@ def _p(name, default):
 
 
 class YAGSlamRos1(Thread):
-    def __init__(self):
+    def __init__(self, base_map_path=None, x=None, y=None, th=None):
         Thread.__init__(self)
         self.setup = False
         self.tfb = tf2_ros.Buffer()
@@ -87,6 +90,13 @@ class YAGSlamRos1(Thread):
         self.last_pose = None
         self.scans = []
 
+        self.initial_xform = None if base_map_path is None else Transform.from_xyt(x, y, th)
+
+        if base_map_path:
+            print("WARNING: A base map was selected, forcing loop search min_chain size to be 2")
+            self.loop_search_min_chain_size = 2
+            self.ingest_base_map(base_map_path)
+
         self.map_pub = rospy.Publisher("/map", OccupancyGrid, latch=True)
         self.map_meta_pub = rospy.Publisher("/map_metadata", MapMetaData)
         self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.process_scan)
@@ -101,7 +111,27 @@ class YAGSlamRos1(Thread):
         self.map_thread.start()
         self.start()
 
-    def setup_mapper(self, msg):
+    def ingest_base_map(self, base_map_path):
+        # LAST_2D_ROBOT_POSE_IN_MAP_FRAME
+        # CURRENT_STATIC_MAP
+        # ROBOT_CURRENT_LOCALE
+        with open(base_map_path + ".yaml") as ff:
+            data = yaml.load(base_map_path, loader=yaml.CLoader)
+        im = cv2.imread(base_map_path + ".pgm")
+
+        scans, edges = map_to_graph(im, self.map_resolution, [data["origin"][0], data["origin"][0]])
+        scan_map = {s.num: s for s in scans}
+        self.setup_mapper()
+        slam_fake = self.mapper
+
+        for ii, scan in enumerate(scans):
+            self.scans.append(scan)
+            slam_fake.add_vertex(scan)
+
+        for ii, (frm, to) in enumerate(edges):
+            slam_fake.link_scans(scan_map[frm], scan_map[to], None, np.identity(3)*10**-12)
+
+    def setup_mapper(self):
         seq_scan_matcher_config = {
             "angle_variance_penalty": _p("~angle_variance_penalty", 0.3),
             "distance_variance_penalty": _p("~distance_variance_penalty", 0.5),
@@ -172,7 +202,18 @@ class YAGSlamRos1(Thread):
             scan = LocalizedRangeScan(
                 ranges, msg.angle_min, msg.angle_max, msg.angle_increment,
                 msg.range_min, msg.range_max, self.range_threshold, pose.x, pose.y, pose.yaw)
-            res, closed = self.mapper.process_scan(scan)
+
+            if not self.mapper.running_scans and self.scans and self.initial_xform:
+                # first scan when splicing into a map
+                slam_fake = self.mapper
+                nearby_scans = slam_fake.search.crude_radius_search(scan.corrected_pose, 1)
+                res = slam_fake.loop_matcher.match_scan(scan, [v.obj for v in nearby_scans], do_fine=True)
+                scan.corrected_pose = res.best_pose
+                slam_fake.add_vertex(scan)
+                slam_fake.link_scans(scan, nearby_scans[0].obj, scan.corrected_pose, res.covariance)
+                slam_fake.running_scans.append(scan)
+            else:
+                res, closed = self.mapper.process_scan(scan)
 
             if len(self.mapper.running_scans) == 1:
                 self.map_queue.put(True)
@@ -184,7 +225,7 @@ class YAGSlamRos1(Thread):
 
     def process_scan(self, msg):
         if not self.mapper:
-            self.setup_mapper(msg)
+            self.setup_mapper()
 
         try:
             odom_to_sensor = self.tfb.lookup_transform(
@@ -225,8 +266,10 @@ class YAGSlamRos1(Thread):
         # with open("/home/jari/Documents/lidar data/" + str(int(time.time())), "w") as ff:
         #     ff.write(json.dumps({"msg": str(msg), "pose": [pose.x, pose.y, pose.yaw]}))
 
+def main(base_map_path=None, x=None, y=None, th=None):
+    rospy.init_node('yag_slam', anonymous=True)
+    mapper = YAGSlamRos1(base_map_path, x, y, th)
+    rospy.spin()
 
 if __name__ == '__main__':
-    rospy.init_node('yag_slam', anonymous=True)
-    mapper = YAGSlamRos1()
-    rospy.spin()
+    argh.dispatch_command(main)

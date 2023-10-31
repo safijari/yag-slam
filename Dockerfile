@@ -17,7 +17,7 @@ RUN source /opt/ros/noetic/setup.bash \
     && rosdep update \
     && rosdep install -y -r --from-paths src --ignore-src --rosdistro=noetic -y
 
-RUN pip install tiny-tf numba==0.49.0 opencv-python-headless
+RUN pip install tiny-tf numba==0.49.0 opencv-python-headless scipy argh
 RUN apt install python3-catkin-tools -y
 
 COPY ./ catkin_ws/src/yag-slam/
