@@ -29,7 +29,7 @@ def segment_map(imin, verbose=False):
 
     numSegments = int(imin.sum() // 600000) * 2
     print("creating {} segments".format(numSegments))
-    segments = slic(imin, n_segments = numSegments, sigma = 0, compactness=0.01, mask=imin)
+    segments = slic(imin[:, :, 0], n_segments = numSegments, sigma = 0, compactness=0.01, mask=imin[:, :, 0], channel_axis=None)
     if verbose:
         import matplotlib.pyplot as plt
         plt.imshow((mark_boundaries(imin, segments, color=(1, 0, 0))*255).astype('uint8'))

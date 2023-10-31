@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import rospy
 from yag_slam.graph_slam import GraphSlam, make_near_scan_visitor
 from yag_slam.scan_matching import Scan2DMatcherCpp
@@ -23,6 +24,7 @@ from queue import Queue
 import json
 import argh
 import yaml
+import numpy as np
 
 
 def tftopose2(msg):
@@ -71,6 +73,8 @@ class YAGSlamRos1(Thread):
         self.tbr = tf2_ros.TransformBroadcaster()
         self.tfl = tf2_ros.TransformListener(self.tfb)
 
+        print(base_map_path, x, y, th)
+
         self.odom_frame = _p('~odom_frame', 'odom')
         self.map_frame = _p('~map_frame', 'map')
         self.sensor_frame = _p('~sensor_frame', 'base_laser_link')
@@ -115,11 +119,14 @@ class YAGSlamRos1(Thread):
         # LAST_2D_ROBOT_POSE_IN_MAP_FRAME
         # CURRENT_STATIC_MAP
         # ROBOT_CURRENT_LOCALE
-        with open(base_map_path + ".yaml") as ff:
-            data = yaml.load(base_map_path, loader=yaml.CLoader)
-        im = cv2.imread(base_map_path + ".pgm")
+        with open(base_map_path) as ff:
+            data = yaml.safe_load(ff)
+        image_path = os.path.dirname(base_map_path) + "/" + data["image"]
+        im = cv2.imread(image_path)
 
-        scans, edges = map_to_graph(im, self.map_resolution, [data["origin"][0], data["origin"][0]])
+        print(image_path)
+
+        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][0]])
         scan_map = {s.num: s for s in scans}
         self.setup_mapper()
         slam_fake = self.mapper
@@ -266,7 +273,7 @@ class YAGSlamRos1(Thread):
         # with open("/home/jari/Documents/lidar data/" + str(int(time.time())), "w") as ff:
         #     ff.write(json.dumps({"msg": str(msg), "pose": [pose.x, pose.y, pose.yaw]}))
 
-def main(base_map_path=None, x=None, y=None, th=None):
+def main(*, base_map_path=None, x=0.0, y=0.0, th=0.0):
     rospy.init_node('yag_slam', anonymous=True)
     mapper = YAGSlamRos1(base_map_path, x, y, th)
     rospy.spin()
