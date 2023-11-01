@@ -103,6 +103,8 @@ class YAGSlamRos1(Thread):
         if base_map_path:
             print("WARNING: A base map was selected, forcing loop search min_chain size to be 2")
             self.loop_search_min_chain_size = 2
+            self.min_response_coarse = 0.25
+            self.min_response_fine = 0.35
             self.ingest_base_map(base_map_path)
 
         self.map_pub = rospy.Publisher("/map", OccupancyGrid, latch=True)
@@ -134,7 +136,7 @@ class YAGSlamRos1(Thread):
         image_path = os.path.dirname(base_map_path) + "/" + data["image"]
         im = cv2.imread(image_path)[::-1, :, 0].copy()
 
-        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][1]], density=4)
+        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][1]], density=5)
         scan_map = {s.num: s for s in scans}
         self.setup_mapper()
         slam_fake = self.mapper
@@ -176,7 +178,7 @@ class YAGSlamRos1(Thread):
         loop_scan_matcher_config.update({
             "search_size": _p("~loop_matching_search_size", 4.0),
             "resolution": _p("~loop_matching_resolution", 0.05),
-            "smear_deviation": _p("~loop_matching_smear_deviation", 0.03),
+            "smear_deviation": _p("~loop_matching_smear_deviation", 0.05),
         })
 
         seq_matcher = Scan2DMatcherCpp(config_dict=seq_scan_matcher_config)
@@ -217,7 +219,6 @@ class YAGSlamRos1(Thread):
             map_msg = self._make_map()
             self.map_pub.publish(map_msg)
             self.map_meta_pub.publish(map_msg.info)
-            self.last_map_update_time = time.time()
             print("published map")
 
     def run(self):
@@ -256,10 +257,12 @@ class YAGSlamRos1(Thread):
                 res, closed = self.mapper.process_scan(scan)
 
             if len(self.mapper.running_scans) == 1:
+                self.last_map_update_time = time.time()
                 self.map_queue.put(True)
 
             map_counter += 1
             if (map_counter >= 5 or closed) and self.map_queue.qsize() == 0:
+                self.last_map_update_time = time.time()
                 self.map_queue.put(True)
                 map_counter = 0
 
@@ -268,6 +271,7 @@ class YAGSlamRos1(Thread):
             self.setup_mapper()
 
         if (time.time() - self.last_map_update_time >= 5):
+            self.last_map_update_time = time.time()
             self.map_queue.put(True)
 
         try:
