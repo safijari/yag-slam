@@ -11,7 +11,7 @@ from tiny_tf.tf import Transform
 from tiny_tf.transformations import euler_from_quaternion, quaternion_from_euler
 import tf2_geometry_msgs
 from sensor_msgs.msg import LaserScan
-from std_srvs.srv import TriggerCommand, TriggerResponse
+from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 from geometry_msgs.msg import Pose, TransformStamped
 from nav_msgs.msg import OccupancyGrid, MapMetaData
 from nav_msgs.srv import GetMapResponse, GetMap
@@ -76,7 +76,7 @@ class YAGSlamRos1(Thread):
         self.tbr = tf2_ros.TransformBroadcaster()
         self.tfl = tf2_ros.TransformListener(self.tfb)
 
-        self.save_graph_service = rospy.Service('yag_slam/save_graph', TriggerCommand, self.save_graph)
+        self.save_graph_service = rospy.Service('yag_slam/save_graph', Trigger, self.save_graph)
         print(base_map_path, x, y, th)
 
         self.odom_frame = _p('~odom_frame', 'odom')
@@ -147,10 +147,14 @@ class YAGSlamRos1(Thread):
         for ii, (frm, to) in enumerate(edges):
             slam_fake.link_scans(scan_map[frm], scan_map[to], None, np.identity(3)*10**-12)
 
+        # to get rid of any nodes that did not have edges
         slam_fake.vertices = [v for v in slam_fake.graph.vertices if v.obj.num in in_edges]
         for ii, v in enumerate(slam_fake.graph.vertices):
             v.obj.num = ii
-        self.scans.append(v.obj)
+            self.scans.append(v.obj)
+
+        # to fix opt issues for now
+        self.mapper = GraphSlam.deserialize(self.mapper.serialize())
 
     def setup_mapper(self):
         seq_scan_matcher_config = {
@@ -243,7 +247,7 @@ class YAGSlamRos1(Thread):
                 slam_fake.link_scans(scan, nearby_scans[0].obj, None, res.covariance)
                 slam_fake.running_scans.append(scan)
                 closed = True
-                self.save_graph()
+                self.save_graph(None)
 
             else:
                 res, closed = self.mapper.process_scan(scan)
