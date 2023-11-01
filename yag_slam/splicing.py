@@ -27,7 +27,7 @@ def segment_map(imin, verbose=False):
 
     imin = test_image
 
-    numSegments = int(imin.sum() // 600000)
+    numSegments = int(imin.sum() // 600000) * 2
     print("creating {} segments".format(numSegments))
     segments = slic(imin, n_segments = numSegments, sigma = 0, compactness=0.01, mask=imin, channel_axis=None)
     if verbose:

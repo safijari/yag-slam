@@ -175,15 +175,16 @@ class GraphSlam(object):
 
           set query scan's corrected pose, link to chain
         """
+        closed = False
+
+        if not self.loop_matcher:
+            return closed
+
         chains = self.find_possible_loop_closure_chains(scan)
 
         if len(chains) > 0:
             print("Found {} chains for loop closure".format(len(chains)))
 
-        closed = False
-
-        if not self.loop_matcher:
-            return closed
 
         for chain in chains:
             # TODO Need to pick the best chain for loop closure and quit once we have a reasonable closure
