@@ -304,7 +304,7 @@ class YAGSlamRos1(Thread):
         #     ff.write(json.dumps({"msg": str(msg), "pose": [pose.x, pose.y, pose.yaw]}))
 
 def main(*, base_map_path=None, x=0.0, y=0.0, th=0.0):
-    rospy.init_node('yag_slam', anonymous=True)
+    rospy.init_node('yag_slam', anonymous=False)
 
     mapper = YAGSlamRos1(base_map_path, x, y, th)
     rospy.spin()
