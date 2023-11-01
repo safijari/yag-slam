@@ -237,7 +237,6 @@ class YAGSlamRos1(Thread):
                 slam_fake.link_scans(scan, nearby_scans[0].obj, None, res.covariance)
                 slam_fake.running_scans.append(scan)
                 closed = False
-                slam_fake.run_opt()
                 test = zlib.compress(msgpack.packb(slam_fake.serialize()))
                 with open("/home/jari/graph.test", "wb") as ff:
                     ff.write(test)
