@@ -123,6 +123,7 @@ class YAGSlamRos1(Thread):
         test = zlib.compress(msgpack.packb(self.mapper.serialize()))
         with open("/home/jari/graph.test", "wb") as ff:
             ff.write(test)
+        return TriggerResponse(success=True, message="lol")
 
     def ingest_base_map(self, base_map_path):
         # LAST_2D_ROBOT_POSE_IN_MAP_FRAME
@@ -133,7 +134,7 @@ class YAGSlamRos1(Thread):
         image_path = os.path.dirname(base_map_path) + "/" + data["image"]
         im = cv2.imread(image_path)[::-1, :, 0].copy()
 
-        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][1]])
+        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][1]], density=4)
         scan_map = {s.num: s for s in scans}
         self.setup_mapper()
         slam_fake = self.mapper
@@ -207,6 +208,7 @@ class YAGSlamRos1(Thread):
         map_msg.data = im.flatten().astype('int8').tolist()
         map_msg.info.origin = pose2toPose(grid.offset)
         map_msg.header.frame_id = self.map_frame
+        print("Made map")
         return map_msg
 
     def _send_map(self):
@@ -216,6 +218,7 @@ class YAGSlamRos1(Thread):
             self.map_pub.publish(map_msg)
             self.map_meta_pub.publish(map_msg.info)
             self.last_map_update_time = time.time()
+            print("published map")
 
     def run(self):
         map_counter = 0
@@ -264,6 +267,9 @@ class YAGSlamRos1(Thread):
         if not self.mapper:
             self.setup_mapper()
 
+        if (time.time() - self.last_map_update_time >= 5):
+            self.map_queue.put(True)
+
         try:
             odom_to_sensor = self.tfb.lookup_transform(
                 self.odom_frame, self.sensor_frame, msg.header.stamp, rospy.Duration(0.1))
@@ -296,9 +302,6 @@ class YAGSlamRos1(Thread):
             print("{}: Current queue size {}".format(time.time(), self.queue.qsize()))
 
         self.queue.put((msg, pose, up_xform.z < 0))
-
-        if (time.time() - self.last_map_update_time >= 5):
-            self.map_queue.put(True)
 
         # with open("/home/jari/Documents/lidar data/" + str(int(time.time())), "w") as ff:
         #     ff.write(json.dumps({"msg": str(msg), "pose": [pose.x, pose.y, pose.yaw]}))

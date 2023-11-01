@@ -13,7 +13,7 @@ import cv2
 def pixel_to_meters(resolution, origin, h, x, y):
     return (x*resolution) + origin[0], ((y)*resolution) + origin[1]
 
-def segment_map(imin, verbose=False): 
+def segment_map(imin, verbose=False, density=1): 
     imin = imin.copy()
 
     imin[imin < 254] = 0
@@ -27,7 +27,7 @@ def segment_map(imin, verbose=False):
 
     imin = test_image
 
-    numSegments = int(imin.sum() // 600000) * 2
+    numSegments = int(imin.sum() // 600000 * density) 
     print("creating {} segments".format(numSegments))
     segments = slic(imin, n_segments = numSegments, sigma = 0, compactness=0.01, mask=imin, channel_axis=None)
     if verbose:
@@ -60,9 +60,9 @@ def create_edges(segments):
 
     return edges
 
-def map_to_graph(map_image, resolution, origin):
+def map_to_graph(map_image, resolution, origin, density=1):
     im = map_image
-    segments = segment_map(map_image, verbose=False)
+    segments = segment_map(map_image, verbose=False, density=density)
     centroid_map = determine_centroids(segments)
     edges =  create_edges(segments)
     angles = np.arange(-180, 180, 0.25)[:-1]
