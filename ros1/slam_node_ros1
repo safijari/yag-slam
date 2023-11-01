@@ -222,6 +222,7 @@ class YAGSlamRos1(Thread):
                 print("Ingesting a new scan for connecting to existing map")
                 # first scan when splicing into a map
                 slam_fake = self.mapper
+                odom_pose_bkup = scan.odom_pose
                 scan.odom_pose = self.initial_xform
                 scan.corrected_pose = self.initial_xform
                 self.initial_xform = None
@@ -231,6 +232,7 @@ class YAGSlamRos1(Thread):
                 nearby_scans = slam_fake.search.crude_radius_search(scan.odom_pose, 5)
                 res = slam_fake.seq_matcher.match_scan(scan, [v.obj for v in nearby_scans], do_fine=True)
                 scan.corrected_pose = res.best_pose
+                scan.odom_pose = odom_pose_backup
                 slam_fake.add_vertex(scan)
                 slam_fake.link_scans(scan, nearby_scans[0].obj, None, res.covariance)
                 slam_fake.running_scans.append(scan)
