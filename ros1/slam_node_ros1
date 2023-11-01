@@ -25,6 +25,8 @@ import json
 import argh
 import yaml
 import numpy as np
+import msgpack
+import zlib
 
 
 def tftopose2(msg):
@@ -81,7 +83,7 @@ class YAGSlamRos1(Thread):
         self.min_distance = _p('~min_distance', 0.5)
         self.min_rotation = _p('~min_rotation', 0.5)
         self.loop_search_min_chain_size = _p('~loop_search_min_chain_size', 10)
-        self.loop_search_distance = _p('~loop_search_distance', 6.0)
+        self.loop_search_distance = _p('~loop_search_distance', 3.0)
         self.min_response_coarse = _p('~min_response_coarse', 0.35)
         self.min_response_fine = _p('~min_response_fine', 0.45)
         self.range_threshold_for_map = _p('~range_threshold_for_map', 12)
@@ -122,21 +124,26 @@ class YAGSlamRos1(Thread):
         with open(base_map_path) as ff:
             data = yaml.safe_load(ff)
         image_path = os.path.dirname(base_map_path) + "/" + data["image"]
-        im = cv2.imread(image_path)
+        im = cv2.imread(image_path)[::-1, :, 0].copy()
 
-        print(image_path)
-
-        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][0]])
+        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][1]])
         scan_map = {s.num: s for s in scans}
         self.setup_mapper()
         slam_fake = self.mapper
 
+        in_edges = set([e[0] for e in edges] + [e[1] for e in edges])
+
         for ii, scan in enumerate(scans):
-            self.scans.append(scan)
+            # self.scans.append(scan)
             slam_fake.add_vertex(scan)
 
         for ii, (frm, to) in enumerate(edges):
             slam_fake.link_scans(scan_map[frm], scan_map[to], None, np.identity(3)*10**-12)
+
+        slam_fake.vertices = [v for v in slam_fake.graph.vertices if v.obj.num in in_edges]
+        for ii, v in enumerate(slam_fake.graph.vertices):
+            v.obj.num = ii
+        self.scans.append(v.obj)
 
     def setup_mapper(self):
         seq_scan_matcher_config = {
@@ -176,6 +183,7 @@ class YAGSlamRos1(Thread):
         return resp
 
     def _make_map(self, msg=True):
+        print("Making map with {} vertices".format(len(self.mapper.graph.vertices)))
         grid = create_occupancy_grid([v.obj._scan for v in self.mapper.graph.vertices], self.map_resolution, self.range_threshold_for_map)
         im = grid.image.astype('int16')
         im[im == 0] = 100
@@ -211,17 +219,29 @@ class YAGSlamRos1(Thread):
                 msg.range_min, msg.range_max, self.range_threshold, pose.x, pose.y, pose.yaw)
 
             if not self.mapper.running_scans and self.scans and self.initial_xform:
+                print("Ingesting a new scan for connecting to existing map")
                 # first scan when splicing into a map
                 slam_fake = self.mapper
                 scan.odom_pose = self.initial_xform
+                scan.corrected_pose = self.initial_xform
                 self.initial_xform = None
-                nearby_scans = slam_fake.search.crude_radius_search(scan.corrected_pose, 1)
-                res = slam_fake.loop_matcher.match_scan(scan, [v.obj for v in nearby_scans], do_fine=True)
+
+                scan.num = max([v.obj.num for v in self.mapper.graph.vertices]) + 1
+
+                nearby_scans = slam_fake.search.crude_radius_search(scan.odom_pose, 5)
+                res = slam_fake.seq_matcher.match_scan(scan, [v.obj for v in nearby_scans], do_fine=True)
                 scan.corrected_pose = res.best_pose
                 slam_fake.add_vertex(scan)
-                slam_fake.link_scans(scan, nearby_scans[0].obj, scan.corrected_pose, res.covariance)
+                slam_fake.link_scans(scan, nearby_scans[0].obj, None, res.covariance)
                 slam_fake.running_scans.append(scan)
+                closed = False
+                slam_fake.run_opt()
+                test = zlib.compress(msgpack.packb(slam_fake.serialize()))
+                with open("/home/jari/graph.test", "wb") as ff:
+                    ff.write(test)
+
             else:
+                print("Ingesting a new scan")
                 res, closed = self.mapper.process_scan(scan)
 
             if len(self.mapper.running_scans) == 1:

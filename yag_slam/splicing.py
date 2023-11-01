@@ -27,9 +27,9 @@ def segment_map(imin, verbose=False):
 
     imin = test_image
 
-    numSegments = int(imin.sum() // 600000) * 2
+    numSegments = int(imin.sum() // 600000)
     print("creating {} segments".format(numSegments))
-    segments = slic(imin[:, :, 0], n_segments = numSegments, sigma = 0, compactness=0.01, mask=imin[:, :, 0], channel_axis=None)
+    segments = slic(imin, n_segments = numSegments, sigma = 0, compactness=0.01, mask=imin, channel_axis=None)
     if verbose:
         import matplotlib.pyplot as plt
         plt.imshow((mark_boundaries(imin, segments, color=(1, 0, 0))*255).astype('uint8'))
@@ -66,13 +66,15 @@ def map_to_graph(map_image, resolution, origin):
     centroid_map = determine_centroids(segments)
     edges =  create_edges(segments)
     angles = np.arange(-180, 180, 0.25)[:-1]
+    # import ipdb; ipdb.set_trace()
     lrss = []
+    rtim = im.copy()
     for cm in tqdm(range(0, len(centroid_map))):
         ranges = []
         x = centroid_map[cm][0]
         y = centroid_map[cm][1]
-        for angle, info in zip(angles, run_raytracing_sweep(im, angles, x, y)):
-            rng = info.length*0.05
+        for angle, info in zip(angles, run_raytracing_sweep(rtim, angles, x, y)):
+            rng = info.length*resolution
             if rng > 20:
                 rng = 100
             ranges.append(rng)

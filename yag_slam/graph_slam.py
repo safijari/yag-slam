@@ -135,7 +135,7 @@ class GraphSlam(object):
         from_vert = self.graph.vertices[from_scan.num]
         for edge in from_vert.edges:
             if edge.target == to_vert:
-                # print("{} to {} already exists".format(from_scan.num, to_scan.num))
+                print("{} to {} already exists".format(from_scan.num, to_scan.num))
                 # Edge already exists, quit
                 return
         diff = to_scan.corrected_pose - from_scan.corrected_pose

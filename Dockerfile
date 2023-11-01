@@ -24,6 +24,8 @@ RUN pip install tiny-tf numba opencv-python-headless argh
 # RUN apt install python3-scipy -y
 RUN pip install --force-reinstall numpy scipy scikit-image tqdm
 
+RUN pip install --force-reinstall msgpack ipython ipdb
+
 COPY ./ catkin_ws/src/yag-slam/
 
 RUN source /opt/ros/noetic/setup.bash \ 
