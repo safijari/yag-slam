@@ -123,9 +123,9 @@ class YAGSlamRos1(Thread):
 
     def save_graph(self, tigger_cmd):
         test = zlib.compress(msgpack.packb(self.mapper.serialize()))
-        with open("/home/jari/graph.test", "wb") as ff:
+        with open(os.path.expanduser("~/graph.test"), "wb") as ff:
             ff.write(test)
-        return TriggerResponse(success=True, message="lol")
+        return TriggerResponse(success=True, message="Saved graph at ~/graph.test")
 
     def ingest_base_map(self, base_map_path):
         # LAST_2D_ROBOT_POSE_IN_MAP_FRAME
