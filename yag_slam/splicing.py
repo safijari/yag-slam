@@ -65,7 +65,7 @@ def map_to_graph(map_image, resolution, origin, density=1):
     segments = segment_map(map_image, verbose=False, density=density)
     centroid_map = determine_centroids(segments)
     edges =  create_edges(segments)
-    angles = np.arange(-180, 180, 0.15)[:-1]
+    angles = np.arange(-180, 180, 0.25)[:-1]
     # import ipdb; ipdb.set_trace()
     lrss = []
     rtim = im.copy()
