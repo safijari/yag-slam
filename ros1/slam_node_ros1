@@ -232,21 +232,20 @@ class YAGSlamRos1(Thread):
                 ranges, msg.angle_min, msg.angle_max, msg.angle_increment,
                 msg.range_min, msg.range_max, self.range_threshold, pose.x, pose.y, pose.yaw)
 
+            if self.initial_xform:
+                odom_pose_bkup = scan.odom_pose
+                scan.odom_pose = self.initial_xform
+                scan.corrected_pose = self.initial_xform
+
             if not self.mapper.running_scans and self.scans and self.initial_xform:
                 print("Ingesting a new scan for connecting to existing map")
                 # first scan when splicing into a map
                 slam_fake = self.mapper
-                odom_pose_bkup = scan.odom_pose
-                scan.odom_pose = self.initial_xform
-                scan.corrected_pose = self.initial_xform
-                self.initial_xform = None
-
                 scan.num = max([v.obj.num for v in self.mapper.graph.vertices]) + 1
 
                 nearby_scans = slam_fake.search.crude_radius_search(scan.odom_pose, 5)
                 res = slam_fake.seq_matcher.match_scan(scan, [v.obj for v in nearby_scans], do_fine=True)
                 scan.corrected_pose = res.best_pose
-                scan.odom_pose = odom_pose_bkup
                 slam_fake.add_vertex(scan)
                 slam_fake.link_scans(scan, nearby_scans[0].obj, None, res.covariance)
                 slam_fake.running_scans.append(scan)
@@ -255,6 +254,9 @@ class YAGSlamRos1(Thread):
 
             else:
                 res, closed = self.mapper.process_scan(scan)
+
+            if self.initial_xform:
+                scan.odom_pose = odom_pose_bkup
 
             if len(self.mapper.running_scans) == 1:
                 self.last_map_update_time = time.time()
