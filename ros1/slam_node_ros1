@@ -98,7 +98,7 @@ class YAGSlamRos1(Thread):
         self.last_pose = None
         self.scans = []
 
-        self.initial_xform = None if base_map_path is None else (x, y, th)
+        self.initial_xform = None if (x is None or y is None or th is None) else (x, y, th)
 
         if base_map_path:
             print("WARNING: A base map was selected, forcing loop search min_chain size to be 2")
