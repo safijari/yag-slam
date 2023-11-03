@@ -15,7 +15,7 @@
 
 
 from yag_slam.helpers import print_config, default_config, make_config, scans_dist_squared, default_config_loop, RadiusHashSearch
-from yag_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2
+from yag_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2, create_occupancy_grid
 from yag_slam.scan_matching import Scan2DMatcherCpp
 from uuid import uuid4
 from tiny_tf.tf import Transform
@@ -24,6 +24,8 @@ from sba_cpp import SPA2d
 import numpy as np
 import time
 from yag_slam.serde import _serialize, _deserialize
+import zlib
+import msgpack
 
 
 # The below violates encapsulation in the worst possible way
@@ -78,6 +80,23 @@ class GraphSlam(object):
         out['min_response_coarse'] = self.min_response_coarse
         out['min_response_fine'] = self.min_response_fine
         return out
+
+    def binarize(self):
+        return zlib.compress(msgpack.packb(self.serialize()))
+
+    @classmethod
+    def unbinarize(cls, d):
+        return cls.deserialize(msgpack.unpackb(zlib.decompress(d)))
+
+    def to_file(self, path):
+        with open(path, "wb") as ff:
+            ff.write(self.binarize())
+
+    @classmethod
+    def from_file(cls, path):
+        with open(path, "rb") as ff:
+            return cls.unbinarize(ff.read())
+
 
     @classmethod
     def deserialize(cls, d):
@@ -306,3 +325,6 @@ class GraphSlam(object):
         self.running_scans = self.running_scans[-self.scan_buffer_len:]
 
         return res, closed
+
+    def make_occupancy_grid(self, resolution=0.05, range_threshold=12):
+        return create_occupancy_grid([v.obj._scan for v in slam.graph.vertices[len(scans):]], 0.05, 12)
