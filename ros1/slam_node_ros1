@@ -98,7 +98,7 @@ class YAGSlamRos1(Thread):
         self.last_pose = None
         self.scans = []
 
-        self.initial_xform = None if base_map_path is None else Transform.from_xyt(x, y, th)
+        self.initial_xform = None if base_map_path is None else (x, y, th)
 
         if base_map_path:
             print("WARNING: A base map was selected, forcing loop search min_chain size to be 2")
@@ -210,7 +210,7 @@ class YAGSlamRos1(Thread):
         map_msg.data = im.flatten().astype('int8').tolist()
         map_msg.info.origin = pose2toPose(grid.offset)
         map_msg.header.frame_id = self.map_frame
-        print("Made map")
+        # print("Made map")
         return map_msg
 
     def _send_map(self):
@@ -219,7 +219,7 @@ class YAGSlamRos1(Thread):
             map_msg = self._make_map()
             self.map_pub.publish(map_msg)
             self.map_meta_pub.publish(map_msg.info)
-            print("published map")
+            # print("published map")
 
     def run(self):
         map_counter = 0
@@ -234,8 +234,9 @@ class YAGSlamRos1(Thread):
 
             if self.initial_xform:
                 odom_pose_bkup = scan.odom_pose
-                scan.odom_pose = self.initial_xform
-                scan.corrected_pose = self.initial_xform
+                scan.odom_pose = Transform.from_xyt(*(self.initial_xform))
+                scan.corrected_pose = Transform.from_xyt(*(self.initial_xform))
+                print("Setting initial transform to {}".format(self.initial_xform))
 
             if not self.mapper.running_scans and self.scans and self.initial_xform:
                 print("Ingesting a new scan for connecting to existing map")
