@@ -252,12 +252,12 @@ class YAGSlamRos1(Thread):
                 slam_fake.running_scans.append(scan)
                 closed = True
                 self.save_graph(None)
-
             else:
                 res, closed = self.mapper.process_scan(scan)
 
             if self.initial_xform:
                 scan.odom_pose = odom_pose_bkup
+                self.initial_xform = 0
 
             if len(self.mapper.running_scans) == 1:
                 self.last_map_update_time = time.time()
