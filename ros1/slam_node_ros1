@@ -232,7 +232,7 @@ class YAGSlamRos1(Thread):
                 ranges, msg.angle_min, msg.angle_max, msg.angle_increment,
                 msg.range_min, msg.range_max, self.range_threshold, pose.x, pose.y, pose.yaw)
 
-            if self.initial_xform:
+            if self.initial_xform is not None:
                 odom_pose_bkup = scan.odom_pose
                 scan.odom_pose = Transform.from_xyt(*(self.initial_xform))
                 scan.corrected_pose = Transform.from_xyt(*(self.initial_xform))
@@ -255,9 +255,9 @@ class YAGSlamRos1(Thread):
             else:
                 res, closed = self.mapper.process_scan(scan)
 
-            if self.initial_xform:
+            if self.initial_xform is not None:
                 scan.odom_pose = odom_pose_bkup
-                self.initial_xform = 0
+                self.initial_xform = None
 
             if len(self.mapper.running_scans) == 1:
                 self.last_map_update_time = time.time()
