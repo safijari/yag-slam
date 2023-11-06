@@ -9,9 +9,9 @@ from yag_slam.models import LocalizedRangeScan
 from yag_slam.splicing import map_to_graph
 from tiny_tf.tf import Transform
 from tiny_tf.transformations import euler_from_quaternion, quaternion_from_euler
+from slam_toolbox_msgs.srv import SerializePoseGraph, SerializePoseGraphResponse
 import tf2_geometry_msgs
 from sensor_msgs.msg import LaserScan
-from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 from geometry_msgs.msg import Pose, TransformStamped
 from nav_msgs.msg import OccupancyGrid, MapMetaData
 from nav_msgs.srv import GetMapResponse, GetMap
@@ -76,7 +76,7 @@ class YAGSlamRos1(Thread):
         self.tbr = tf2_ros.TransformBroadcaster()
         self.tfl = tf2_ros.TransformListener(self.tfb)
 
-        self.save_graph_service = rospy.Service('yag_slam/save_graph', Trigger, self.save_graph)
+        self.save_graph_service = rospy.Service('yag_slam/save_graph', SerializePoseGraph, self.save_graph)
         print(base_map_path, x, y, th)
 
         self.odom_frame = _p('~odom_frame', 'odom')
@@ -123,9 +123,10 @@ class YAGSlamRos1(Thread):
 
     def save_graph(self, tigger_cmd):
         test = zlib.compress(msgpack.packb(self.mapper.serialize()))
-        with open(os.path.expanduser("~/graph.test"), "wb") as ff:
+        with open(trigger_cmd.filename, "wb") as ff:
+            print("Saving graph at {}".format(trigger_cmd.filename))
             ff.write(test)
-        return TriggerResponse(success=True, message="Saved graph at ~/graph.test")
+        return SerializePoseGraphResponse()
 
     def ingest_base_map(self, base_map_path):
         # LAST_2D_ROBOT_POSE_IN_MAP_FRAME
