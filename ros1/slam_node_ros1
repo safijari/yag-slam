@@ -136,23 +136,10 @@ class YAGSlamRos1(Thread):
         image_path = os.path.dirname(base_map_path) + "/" + data["image"]
         im = cv2.imread(image_path)[::-1, :, 0].copy()
 
-        scans, edges = map_to_graph(im, data["resolution"], [data["origin"][0], data["origin"][1]], density=5)
-        scan_map = {s.num: s for s in scans}
         self.setup_mapper()
-        slam_fake = self.mapper
 
-        in_edges = set([e[0] for e in edges] + [e[1] for e in edges])
-
-        for ii, scan in enumerate(scans):
-            # self.scans.append(scan)
-            slam_fake.add_vertex(scan)
-
-        for ii, (frm, to) in enumerate(edges):
-            slam_fake.link_scans(scan_map[frm], scan_map[to], None, np.identity(3)*10**-12)
-
-        # to get rid of any nodes that did not have edges
-        slam_fake.vertices = [v for v in slam_fake.graph.vertices if v.obj.num in in_edges]
-        for ii, v in enumerate(slam_fake.graph.vertices):
+        self.mapper = map_to_graphslam(self.mapper, im, data["resolution"], [data["origin"][0], data["origin"][1]], density=5)
+        for ii, v in enumerate(self.mapper.graph.vertices):
             v.obj.num = ii
             self.scans.append(v.obj)
 

@@ -11,7 +11,7 @@ from collections import defaultdict
 import cv2
 
 def pixel_to_meters(resolution, origin, h, x, y):
-    return (x*resolution) + origin[0], ((y)*resolution) + origin[1]
+    return (x*resolution) + origin[0], ((h-y)*resolution) + origin[1]
 
 def segment_map(imin, verbose=False, density=1): 
     imin = imin.copy()
@@ -73,7 +73,7 @@ def map_to_graph(map_image, resolution, origin, density=1):
         ranges = []
         x = centroid_map[cm][0]
         y = centroid_map[cm][1]
-        for angle, info in zip(angles, run_raytracing_sweep(rtim, angles, x, y)):
+        for angle, info in zip(angles, run_raytracing_sweep(rtim, angles[::-1], x, y)):
             rng = info.length*resolution
             if rng > 20:
                 rng = 100
@@ -87,3 +87,22 @@ def map_to_graph(map_image, resolution, origin, density=1):
         lrss.append(lrs)
 
     return lrss, edges
+
+def map_to_graphslam(slam_fake, map_image, resolution, origin, density=1):
+    scans, edges = map_to_graph(map_image, resolution, origin, density)
+    scan_map = {s.num: s for s in scans}
+
+    in_edges = set([e[0] for e in edges] + [e[1] for e in edges])
+
+    for ii, scan in enumerate(scans):
+        slam_fake.add_vertex(scan)
+
+    for ii, (frm, to) in enumerate(edges):
+        slam_fake.link_scans(scan_map[frm], scan_map[to], None, np.identity(3)*10**-12)
+
+    # to get rid of any nodes that did not have edges
+    slam_fake.vertices = [v for v in slam_fake.graph.vertices if v.obj.num in in_edges]
+    for ii, v in enumerate(slam_fake.graph.vertices):
+        v.obj.num = ii
+
+    return slam_fake

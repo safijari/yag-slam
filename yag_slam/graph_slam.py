@@ -67,6 +67,10 @@ class GraphSlam(object):
         self.min_response_coarse = min_response_coarse
         self.min_response_fine = min_response_fine
 
+    @classmethod
+    def default(cls):
+        return cls(default_config, default_config_loop)
+
     def serialize(self):
         out = {}
         out['scans'] = [_serialize(v.obj) for v in self.graph.vertices]

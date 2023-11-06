@@ -573,15 +573,15 @@ def find_best_pose_non_symmetric(cgrid, local_frame_points, cx, cy, ct, ox, oy, 
     return [response, bx, by, bt, XX / norm / response, YY / norm / response, XY / norm / response, TH / th_norm]
 
 
-def visualize_slam_threeviz(slam, edge_color="black"):
-    from threeviz.api import plot_3d, plot_pose
+def visualize_slam_threeviz(slam, color="red", prefix=""):
+    from threeviz.api import plot_3d, plot_pose, plot_polygon
     for ii, v in enumerate(slam.graph.vertices):
         lrs = v.obj
-        _ = plot_3d(lrs.points()[0], lrs.points()[1], lrs.points()[0]*0, "scan"+str(ii), size=0.02)
-        plot_pose(lrs.corrected_pose, "pose" + str(ii), size=0.1)
+        _ = plot_3d(lrs.points()[0], lrs.points()[1], lrs.points()[0]*0, prefix+"scan"+str(ii), size=0.02, color=color)
+        plot_pose(lrs.corrected_pose, prefix+"pose" + str(ii), size=0.1)
         time.sleep(0.001)
 
     for ii, e in enumerate(slam.graph.edges):
         s, t = e.source.obj, e.target.obj
         plot_polygon([[s.corrected_pose.x, s.corrected_pose.y, 0], 
-                      [t.corrected_pose.x, t.corrected_pose.y, 0]], "edge" + str(ii), color=edge_color)
+                      [t.corrected_pose.x, t.corrected_pose.y, 0]], prefix+"edge" + str(ii), color=color)
