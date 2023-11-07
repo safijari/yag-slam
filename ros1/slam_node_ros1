@@ -121,7 +121,7 @@ class YAGSlamRos1(Thread):
         self.map_thread.start()
         self.start()
 
-    def save_graph(self, tigger_cmd):
+    def save_graph(self, trigger_cmd):
         test = zlib.compress(msgpack.packb(self.mapper.serialize()))
         with open(trigger_cmd.filename, "wb") as ff:
             print("Saving graph at {}".format(trigger_cmd.filename))
