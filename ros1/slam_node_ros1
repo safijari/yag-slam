@@ -124,7 +124,7 @@ class YAGSlamRos1(Thread):
     def save_graph(self, trigger_cmd):
         test = zlib.compress(msgpack.packb(self.mapper.serialize()))
         with open(trigger_cmd.filename, "wb") as ff:
-            print("Saving graph at {}".format(trigger_cmd.filename))
+            print("Saving graph at {}".format(os.path.basename(trigger_cmd.filename)))
             ff.write(test)
         return SerializePoseGraphResponse()
 
