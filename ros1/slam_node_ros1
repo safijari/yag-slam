@@ -123,7 +123,7 @@ class YAGSlamRos1(Thread):
 
     def save_graph(self, trigger_cmd):
         test = zlib.compress(msgpack.packb(self.mapper.serialize()))
-        fixed_path = os.path.basename(trigger_cmd.filename)
+        fixed_path = os.path.expanduser("~") + "/" + os.path.basename(trigger_cmd.filename)
         with open(fixed_path, "wb") as ff:
             print("Saving graph at {}".format(fixed_path))
             ff.write(test)
