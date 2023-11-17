@@ -122,11 +122,14 @@ class YAGSlamRos1(Thread):
         self.start()
 
     def save_graph(self, trigger_cmd):
-        test = zlib.compress(msgpack.packb(self.mapper.serialize()))
-        fixed_path = os.path.expanduser("~") + "/" + os.path.basename(trigger_cmd.filename)
+        out = zlib.compress(msgpack.packb(self.mapper.serialize()))
+        if trigger_cmd is not None:
+            fixed_path = trigger_cmd.filename
+        else:
+            fixed_path = os.path.expanduser("~") + "/" + "map.graph"
         with open(fixed_path, "wb") as ff:
             print("Saving graph at {}".format(fixed_path))
-            ff.write(test)
+            ff.write(out)
         return SerializePoseGraphResponse()
 
     def ingest_base_map(self, base_map_path):
@@ -204,11 +207,12 @@ class YAGSlamRos1(Thread):
 
     def _send_map(self):
         while True:
-            self.map_queue.get()
+            res = self.map_queue.get()
             map_msg = self._make_map()
             self.map_pub.publish(map_msg)
             self.map_meta_pub.publish(map_msg.info)
-            # print("published map")
+            if res == "true":
+                self.save_graph()
 
     def run(self):
         map_counter = 0
@@ -255,7 +259,7 @@ class YAGSlamRos1(Thread):
             map_counter += 1
             if (map_counter >= 5 or closed) and self.map_queue.qsize() == 0:
                 self.last_map_update_time = time.time()
-                self.map_queue.put(True)
+                self.map_queue.put("true")
                 map_counter = 0
 
     def process_scan(self, msg):
