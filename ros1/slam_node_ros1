@@ -126,7 +126,7 @@ class YAGSlamRos1(Thread):
         if trigger_cmd is not None:
             fixed_path = trigger_cmd.filename
         else:
-            fixed_path = os.path.expanduser("~") + "/" + "map.graph"
+            fixed_path = os.path.expanduser("~") + "/.jari/maps/" + "map.graph"
         with open(fixed_path, "wb") as ff:
             print("Saving graph at {}".format(fixed_path))
             ff.write(out)
