@@ -212,7 +212,7 @@ class YAGSlamRos1(Thread):
             self.map_pub.publish(map_msg)
             self.map_meta_pub.publish(map_msg.info)
             if res == "true":
-                self.save_graph()
+                self.save_graph(None)
 
     def run(self):
         map_counter = 0
