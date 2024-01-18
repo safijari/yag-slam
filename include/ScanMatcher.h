@@ -7,6 +7,7 @@
 #include "CorrelationGrid.h"
 #include "LocalizedRangeScan.h"
 #include "GridIndexLookup.h"
+#include <memory>
 
 #define MAX_VARIANCE            500.0
 #define DISTANCE_PENALTY_GAIN   0.2
