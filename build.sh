@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#docker run --rm -v `pwd`:/repo --rm safijari/manylinux_2_28-x64 /repo/run_build.sh
+
 cd /repo
 
 rm -r build
