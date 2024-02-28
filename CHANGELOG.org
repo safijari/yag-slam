@@ -1,0 +1,7 @@
+* 0.1.5
+  - Fix up (de)serialization functions
+  - Add function for converting occupancy grid map image back to a graph
+  - Fix up ros1 node
+
+* 0.1.1
+  - Previous build prior to changelog
