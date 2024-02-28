@@ -9,9 +9,6 @@ Here are the rough goals of this project:
 - Do map saving, loading, and modification using portable formats (currently `Graph state -> dict -> msgpack`) to allow for tool development in a variety of ways.
 - Support any sensor so long as a scan matcher and a loop closure system are supplied.
 
-Note: a full readme and examples are forthcoming, as well as a ROS 2 node and proper packaging. Until then enjoy
-the following images:
-
 Underlying Graph
 ![graph slam](https://user-images.githubusercontent.com/5191844/64484217-e443fe80-d1c3-11e9-8f27-9fa95e7b845b.png)
 
