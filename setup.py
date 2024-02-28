@@ -14,24 +14,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from setuptools import setup, find_packages
+
 try:
     import pybind11_cmake
 except ImportError:
-    print("pybind11-cmake must be installed."
-          "Try \n \t pip install pybind11_cmake")
+    print("pybind11-cmake must be installed." "Try \n \t pip install pybind11_cmake")
     import sys
+
     sys.exit()
 
 from pybind11_cmake import CMakeExtension, CMakeBuild
 
 setup(
-    name='yag_slam',
-    version='0.1.1',
-    author='Jariullah Safi',
-    author_email='safijari@isu.edu',
-    description=
-    'A complete 2D and 3D graph SLAM implementation using plagiarized code from SRI\'s OpenKarto',
-    long_description='''
+    name="yag_slam",
+    version="0.1.1",
+    author="Jariullah Safi",
+    author_email="safijari@isu.edu",
+    description="A complete 2D and 3D graph SLAM implementation using plagiarized code from SRI's OpenKarto",
+    long_description="""
 # YAG SLAM (Yet Another Graph SLAM)
 
 Quick blurb on project goals: YAG SLAM is meant to be a complete graph SLAM system for life long mapping for robots using either 2D or 3D sensors. In its current form it is basically the same as Open Karto, even keeping the scan matcher from Karto mostly as is. The graph bits (including serialization/deserialization) however are implemented in Python and SBA is being used to do the graph optimization.
@@ -42,13 +42,19 @@ Here are the rough goals of this project:
 - Support ROS without needing ROS as I intend to use the API exposed by this codebase in a variety of situations/cloud services that are related to robotics but aren't "on a robot".
 - Do map saving, loading, and modification using portable formats (currently `Graph state -> dict -> msgpack`) to allow for tool development in a variety of ways.
 - Support any sensor so long as a scan matcher and a loop closure system are supplied.
-    ''',
+    """,
     packages=find_packages(),
     install_requires=[
-        'sparse_bundle_adjustment', 'numpy', 'tiny_tf', 'numba', 'scipy', 'scikit-image'
+        "sparse_bundle_adjustment",
+        "numpy",
+        "tiny_tf",
+        "numba",
+        "scipy",
+        "scikit-image",
+        "tqdm",
     ],
-    setup_requires=['pybind11_cmake'],
-    ext_modules=[CMakeExtension('yag_slam_cpp')],
+    setup_requires=["pybind11_cmake"],
+    ext_modules=[CMakeExtension("yag_slam_cpp")],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
 )
