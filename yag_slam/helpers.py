@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
+import time
 from numba import njit, prange
 import numpy as np
 from yag_slam_cpp import ScanMatcherConfig
@@ -334,29 +335,28 @@ def print_config(config):
             continue
         print("{}: {}".format(name, config.__getattribute__(name)))
 
-
 default_config = {
-    "angle_variance_penalty": 1.0,
-    "distance_variance_penalty": 0.5,
+    "angle_variance_penalty": 0.349,
+    "distance_variance_penalty": 0.3,
     "coarse_search_angle_offset": 0.349,
     "coarse_angle_resolution": 0.0349,
     "fine_search_angle_resolution": 0.00349,
     "use_response_expansion": True,
-    "range_threshold": 12,
+    "range_threshold": 20,
     "minimum_angle_penalty": 0.9,
-    "search_size": 0.5,
+    "search_size": 0.3,
     "resolution": 0.01,
-    "smear_deviation": 0.1,
+    "smear_deviation": 0.03,
 }
 
 default_config_loop = {
-    "angle_variance_penalty": 1.0,
-    "distance_variance_penalty": 0.5,
+    "angle_variance_penalty": 0.349,
+    "distance_variance_penalty": 0.3,
     "coarse_search_angle_offset": 0.349,
     "coarse_angle_resolution": 0.0349,
     "fine_search_angle_resolution": 0.00349,
     "use_response_expansion": True,
-    "range_threshold": 12,
+    "range_threshold": 20,
     "minimum_angle_penalty": 0.9,
     "resolution": 0.05,
     "search_size": 8.0,
@@ -571,3 +571,17 @@ def find_best_pose_non_symmetric(cgrid, local_frame_points, cx, cy, ct, ox, oy, 
         TH += res_ * (t_ - bt)**2
 
     return [response, bx, by, bt, XX / norm / response, YY / norm / response, XY / norm / response, TH / th_norm]
+
+
+def visualize_slam_threeviz(slam, color="red", prefix=""):
+    from threeviz.api import plot_3d, plot_pose, plot_polygon
+    for ii, v in enumerate(slam.graph.vertices):
+        lrs = v.obj
+        _ = plot_3d(lrs.points()[0], lrs.points()[1], lrs.points()[0]*0, prefix+"scan"+str(ii), size=0.02, color=color)
+        plot_pose(lrs.corrected_pose, prefix+"pose" + str(ii), size=0.1)
+        time.sleep(0.001)
+
+    for ii, e in enumerate(slam.graph.edges):
+        s, t = e.source.obj, e.target.obj
+        plot_polygon([[s.corrected_pose.x, s.corrected_pose.y, 0], 
+                      [t.corrected_pose.x, t.corrected_pose.y, 0]], prefix+"edge" + str(ii), color=color)

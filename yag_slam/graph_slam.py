@@ -15,7 +15,8 @@
 
 
 from yag_slam.helpers import print_config, default_config, make_config, scans_dist_squared, default_config_loop, RadiusHashSearch
-from yag_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2
+from yag_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2, create_occupancy_grid
+from yag_slam.scan_matching import Scan2DMatcherCpp
 from uuid import uuid4
 from tiny_tf.tf import Transform
 from yag_slam.graph import Graph, Vertex, Edge, LinkLabel, do_breadth_first_traversal
@@ -23,6 +24,8 @@ from sba_cpp import SPA2d
 import numpy as np
 import time
 from yag_slam.serde import _serialize, _deserialize
+import zlib
+import msgpack
 
 
 # The below violates encapsulation in the worst possible way
@@ -64,14 +67,17 @@ class GraphSlam(object):
         self.min_response_coarse = min_response_coarse
         self.min_response_fine = min_response_fine
 
+    @classmethod
+    def default(cls):
+        return cls(default_config, default_config_loop)
+
     def serialize(self):
         out = {}
         out['scans'] = [_serialize(v.obj) for v in self.graph.vertices]
         out['edges'] = [[e.source.obj.num, e.target.obj.num, _serialize(e.info)] for e in self.graph.edges]
         out['running_scans'] = [s.num for s in self.running_scans]
-        out['scan_config'] = _serialize(self.scan_config)
         out['seq_matcher_config'] = _serialize(self.seq_matcher.config)
-        out['loop_matcher_config'] = _serialize(self.seq_matcher.config)
+        out['loop_matcher_config'] = _serialize(self.loop_matcher.config)
         out['scan_buffer_len'] = self.scan_buffer_len
         out['loop_search_dist'] = self.loop_search_dist
         out['loop_search_min_chain_size'] = self.loop_search_min_chain_size
@@ -79,11 +85,29 @@ class GraphSlam(object):
         out['min_response_fine'] = self.min_response_fine
         return out
 
+    def binarize(self):
+        return zlib.compress(msgpack.packb(self.serialize()))
+
+    @classmethod
+    def unbinarize(cls, d):
+        return cls.deserialize(msgpack.unpackb(zlib.decompress(d)))
+
+    def to_file(self, path):
+        with open(path, "wb") as ff:
+            ff.write(self.binarize())
+
+    @classmethod
+    def from_file(cls, path):
+        with open(path, "rb") as ff:
+            return cls.unbinarize(ff.read())
+
+
     @classmethod
     def deserialize(cls, d):
-        obj = cls(_deserialize(d['scan_config']), d['scan_buffer_len'],
-                  {k: v for k, v in d['seq_matcher_config'].items() if k != '___name'},
-                  {k: v for k, v in d['loop_matcher_config'].items() if k != '___name'},
+        obj = cls(
+                  Scan2DMatcherCpp({k: v for k, v in d['seq_matcher_config'].items() if k != '___name'}),
+                  Scan2DMatcherCpp({k: v for k, v in d['loop_matcher_config'].items() if k != '___name'}),
+                  d['scan_buffer_len'],
                   d['loop_search_dist'], d['loop_search_min_chain_size'],
                   d['min_response_coarse'], d['min_response_fine'])
         for s in d['scans']:
@@ -91,7 +115,11 @@ class GraphSlam(object):
 
         vs = obj.graph.vertices
         for from_num, to_num, info in d['edges']:
-            obj.graph.add_edge(Edge(vs[from_num], vs[to_num], _deserialize(info)))
+            new_edge = Edge(vs[from_num], vs[to_num], _deserialize(info))
+            obj.graph.add_edge(new_edge)
+            diff = new_edge.info.mean
+            obj.opt.add_constraint(from_num, to_num, diff.x, diff.y, diff.euler[-1],
+                                    np.linalg.inv(np.array(new_edge.info.covariance)).tolist())
 
         obj.running_scans = [vs[i].obj for i in d['running_scans']]
 
@@ -170,17 +198,19 @@ class GraphSlam(object):
 
           set query scan's corrected pose, link to chain
         """
-        chains = self.find_possible_loop_closure_chains(scan)
-
-        if len(chains) > 0:
-            print("ooh chains")
-
         closed = False
 
         if not self.loop_matcher:
             return closed
 
+        chains = self.find_possible_loop_closure_chains(scan)
+
+        if len(chains) > 0:
+            print("Found {} chains for loop closure".format(len(chains)))
+
+
         for chain in chains:
+            # TODO Need to pick the best chain for loop closure and quit once we have a reasonable closure
             # coarse
             res_coarse = self.loop_matcher.match_scan(scan, chain, False, False)
             # resp 0.35 for coarse, 0.4 for fine?
@@ -215,26 +245,32 @@ class GraphSlam(object):
                                                })
 
             closed = True
+            break
 
         if closed:
             print("successful loop closure")
-            begin = time.time()
-            self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
-            print("opt took {} seconds".format(time.time() - begin))
-
-            for node, vtx in zip(self.opt.nodes, self.graph.vertices):
-                vtx.obj.corrected_pose = Transform.from_pose2d(Pose2(node.x, node.y, node.yaw))
-
-            self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
+            self.run_opt()
 
         return closed
+
+    def run_opt(self):
+        begin = time.time()
+        self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
+        print("opt took {} seconds".format(time.time() - begin))
+
+        for node, vtx in zip(self.opt.nodes, self.graph.vertices):
+            vtx.obj.corrected_pose = Transform.from_pose2d(Pose2(node.x, node.y, node.yaw))
+
+        self.search = RadiusHashSearch(self.graph.vertices, res=self.loop_search_dist)
 
     def find_possible_loop_closure_chains(self, scan):
         vert = self.graph.vertices[scan.num]
         near_linked_verts = set(do_breadth_first_traversal(vert, self.near_scan_visitor))
+        # print("found {} near_linked_verts".format(len(near_linked_verts)))
         chains = []
 
         vertices = self.search.crude_radius_search(scan.corrected_pose, self.loop_search_dist)
+        # print("found {} vertices".format(len(vertices)))
         vertices.sort(key=lambda v: v.obj.num)
 
         current_chain = []
@@ -293,3 +329,6 @@ class GraphSlam(object):
         self.running_scans = self.running_scans[-self.scan_buffer_len:]
 
         return res, closed
+
+    def make_occupancy_grid(self, resolution=0.05, range_threshold=12):
+        return create_occupancy_grid([v.obj._scan for v in slam.graph.vertices[len(scans):]], 0.05, 12)

@@ -16,8 +16,11 @@
 from collections import namedtuple
 import json
 from yag_slam.helpers import make_config
-from yag_slam_cpp import ScanMatcherConfig, Pose2, LocalizedRangeScan, LaserScanConfig, Wrapper
+from yag_slam_cpp import ScanMatcherConfig, Pose2, LaserScanConfig, Wrapper
+from yag_slam.models import LocalizedRangeScan
 from yag_slam.graph import LinkLabel
+from tiny_tf.tf import Transform
+import numpy
 
 SerdeConfig = namedtuple('SerdeConfig', ['cls', 'variables', 'factory'])
 NAME = '___name'
@@ -33,6 +36,8 @@ def _serialize(obj):
         d = {v: _serialize(obj.__getattribute__(v)) for v in _configs[n].variables}
         d[NAME] = n
         return d
+    elif isinstance(obj, numpy.ndarray):
+        return obj.tolist()
     else:
         return obj
 
@@ -50,7 +55,7 @@ def _deserialize(d):
 
 _configs = {
     'LocalizedRangeScan':
-    SerdeConfig(LocalizedRangeScan, ['config', 'ranges', 'odom_pose', 'corrected_pose', 'num', 'time'], None),
+    SerdeConfig(LocalizedRangeScan, ["ranges", "min_angle", "max_angle", "angle_increment", "min_range", "max_range", "range_threshold", 'odom_pose', 'corrected_pose', 'num'], LocalizedRangeScan.deserialize),
     'Pose2':
     SerdeConfig(Pose2, ['x', 'y', 'yaw'], None),
     'LaserScanConfig':
@@ -62,5 +67,6 @@ _configs = {
     SerdeConfig(Wrapper, ['config'], None),
     'ScanMatcherConfig':
     SerdeConfig(ScanMatcherConfig, [v for v in dir(ScanMatcherConfig()) if v[0] != '_'], make_config),
-    'LinkLabel': SerdeConfig(LinkLabel, ['mean', 'covariance'], None)
+    'LinkLabel': SerdeConfig(LinkLabel, ['mean', 'covariance'], None),
+    'Transform': SerdeConfig(Transform, ["x", "y", "z", "qx", "qy", "qz", "qw"], None)
 }

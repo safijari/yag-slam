@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+    <name>yag_slam</name>
+    <version>0.0.1</version>
+    <description>thing</description>
+
+    <maintainer email="safijari@isu.edu">Jariullah Safi</maintainer>
+
+    <license>MIT</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+    <depend>boost</depend>
+    <depend>numba</depend>
+
+    <export>
+        <build_type condition="$ROS_VERSION == 1">cmake</build_type>
+        <build_type condition="$ROS_VERSION == 2">ament_python</build_type>
+    </export>
+</package>

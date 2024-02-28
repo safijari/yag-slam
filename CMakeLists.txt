@@ -14,11 +14,29 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 cmake_minimum_required(VERSION 2.8.12)
-project(yag-slam)
+project(yag_slam)
+
+find_package(catkin QUIET)
+
+if (catkin_FOUND)
+  include_directories(include)
+  catkin_package(
+    INCLUDE_DIRS include
+    )
+else()
+  include_directories(include)
+endif()
 
 add_subdirectory(pybind11)
 
-include_directories(include)
-# find_package(Boost COMPONENTS thread REQUIRED)
+find_package(Boost COMPONENTS thread REQUIRED)
+
 pybind11_add_module(yag_slam_cpp src/PythonInterface.cpp src/Impls.cpp src/ScanMatcher.cpp)
-target_link_libraries(yag_slam_cpp PRIVATE)
+target_link_libraries(yag_slam_cpp PRIVATE Boost::thread)
+
+if (catkin_FOUND)
+  install(TARGETS yag_slam_cpp
+    LIBRARY DESTINATION ${CATKIN_GLOBAL_PYTHON_DESTINATION}
+    )
+  install(DIRECTORY yag_slam DESTINATION ${CATKIN_GLOBAL_PYTHON_DESTINATION})
+endif()

@@ -19,8 +19,8 @@ class Scan2DMatcherCpp(object):
         cfg = default_config if not loop else default_config_loop
         cfg = cfg.copy()
         cfg.update(config_dict)
-        self._config = make_config(cfg)
-        self._matcher = Wrapper(self._config)
+        self.config = make_config(cfg)
+        self._matcher = Wrapper(self.config)
 
     def match_scan(self, query, base_scans, penalty=True, do_fine=False):
         res = self._matcher.match_scan(query._scan, [b._scan for b in base_scans], penalty, do_fine)

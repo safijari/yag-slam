@@ -38,6 +38,20 @@ class LocalizedRangeScan:
             LaserScanConfig(min_angle, max_angle, angle_increment, min_range, max_range, range_threshold, ""), ranges,
             Pose2Cpp(x, y, t), Pose2Cpp(x, y, t), 0, 0.0)
 
+    @classmethod
+    def deserialize(cls, args):
+        return cls._deserialize(**args)
+
+    @classmethod
+    def _deserialize(cls, ranges, min_angle, max_angle, angle_increment, min_range, max_range, range_threshold, odom_pose, corrected_pose, num):
+        out = cls(ranges, min_angle, max_angle, angle_increment, min_range, max_range, range_threshold, 0, 0, 0)
+        del odom_pose["___name"]
+        del corrected_pose["___name"]
+        out.odom_pose = Transform(**odom_pose)
+        out.corrected_pose = Transform(**corrected_pose)
+        out.num = num
+        return out
+
     @property
     def num(self):
         return self._id
