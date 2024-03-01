@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.0.0)
 project(yag_slam)
 
 find_package(catkin QUIET)
@@ -29,10 +29,10 @@ endif()
 
 add_subdirectory(pybind11)
 
-find_package(Boost COMPONENTS thread REQUIRED)
+find_package(Boost COMPONENTS thread atomic REQUIRED)
 
 pybind11_add_module(yag_slam_cpp src/PythonInterface.cpp src/Impls.cpp src/ScanMatcher.cpp)
-target_link_libraries(yag_slam_cpp PRIVATE Boost::thread)
+target_link_libraries(yag_slam_cpp PRIVATE Boost::thread Boost::atomic)
 
 if (catkin_FOUND)
   install(TARGETS yag_slam_cpp
