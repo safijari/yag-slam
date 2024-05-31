@@ -335,6 +335,7 @@ def print_config(config):
             continue
         print("{}: {}".format(name, config.__getattribute__(name)))
 
+
 default_config = {
     "angle_variance_penalty": 0.349,
     "distance_variance_penalty": 0.3,
