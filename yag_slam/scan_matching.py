@@ -15,7 +15,7 @@ ScanMatcherResult = namedtuple('ScanMatcherResult',
                                ['response', 'covariance', 'best_pose', 'meta'])
 
 class Scan2DMatcherCpp(object):
-    def __init__(self, config_dict={}, loop=False):
+    def __init__(self, config_dict=None, loop=False):
         cfg = default_config if not loop else default_config_loop
         cfg = cfg.copy()
         cfg.update(config_dict)
@@ -27,15 +27,16 @@ class Scan2DMatcherCpp(object):
         return ScanMatcherResult(res.response, res.covariance, Transform.from_pose2d(res.best_pose), None)
 
 
-class Scan2DMatcher(object):
-    def __init__(self, search_size=0.5, resolution=0.01, angle_size=0.349, angle_res=0.0349, range_threshold=12, smear_deviation=0.1):
-        self.search_size = search_size
-        self.resolution = resolution
-        self.angle_size = angle_size
-        self.angle_res = angle_res
-        self.range_threshold = range_threshold
-        self.smear_deviation = smear_deviation
-
+class Scan2DMatcherPy(object):
+    def __init__(self, config_dict=None):
+        cfg = default_config.copy()
+        cfg.update(config_dict)
+        self.search_size = cfg['search_size']
+        self.resolution = cfg['resolution']
+        self.angle_size = cfg['angle_size']
+        self.angle_res = cfg['angle_res']
+        self.range_threshold = cfg['range_threshold']
+        self.smear_deviation = cfg['smear_deviation']
 
     def match_scan_sets(self, query_scans, base_scans, penalty=True, do_fine=True):
         search_size = self.search_size

@@ -22,12 +22,12 @@ from yag_slam.graph import LinkLabel
 from tiny_tf.tf import Transform
 import numpy
 
-SerdeConfig = namedtuple('SerdeConfig', ['cls', 'variables', 'factory'])
-NAME = '___name'
+SerdeConfig = namedtuple("SerdeConfig", ["cls", "variables", "factory"])
+NAME = "___name"
 
 
 def _class_name(obj):
-    return str(obj.__class__).split('.')[-1].split("'")[0]
+    return str(obj.__class__).split(".")[-1].split("'")[0]
 
 
 def _serialize(obj):
@@ -54,19 +54,42 @@ def _deserialize(d):
 
 
 _configs = {
-    'LocalizedRangeScan':
-    SerdeConfig(LocalizedRangeScan, ["ranges", "min_angle", "max_angle", "angle_increment", "min_range", "max_range", "range_threshold", 'odom_pose', 'corrected_pose', 'num'], LocalizedRangeScan.deserialize),
-    'Pose2':
-    SerdeConfig(Pose2, ['x', 'y', 'yaw'], None),
-    'LaserScanConfig':
-    SerdeConfig(
+    "LocalizedRangeScan": SerdeConfig(
+        LocalizedRangeScan,
+        [
+            "ranges",
+            "min_angle",
+            "max_angle",
+            "angle_increment",
+            "min_range",
+            "max_range",
+            "range_threshold",
+            "odom_pose",
+            "corrected_pose",
+            "num",
+        ],
+        LocalizedRangeScan.deserialize,
+    ),
+    "Pose2": SerdeConfig(Pose2, ["x", "y", "yaw"], None),
+    "LaserScanConfig": SerdeConfig(
         LaserScanConfig,
-        ['min_angle', 'max_angle', 'angular_resolution', 'min_range', 'max_range', 'range_threshold', 'sensor_name'],
-        None),
-    'Wrapper':
-    SerdeConfig(Wrapper, ['config'], None),
-    'ScanMatcherConfig':
-    SerdeConfig(ScanMatcherConfig, [v for v in dir(ScanMatcherConfig()) if v[0] != '_'], make_config),
-    'LinkLabel': SerdeConfig(LinkLabel, ['mean', 'covariance'], None),
-    'Transform': SerdeConfig(Transform, ["x", "y", "z", "qx", "qy", "qz", "qw"], None)
+        [
+            "min_angle",
+            "max_angle",
+            "angular_resolution",
+            "min_range",
+            "max_range",
+            "range_threshold",
+            "sensor_name",
+        ],
+        None,
+    ),
+    "Wrapper": SerdeConfig(Wrapper, ["config"], None),
+    "ScanMatcherConfig": SerdeConfig(
+        ScanMatcherConfig,
+        [v for v in dir(ScanMatcherConfig()) if v[0] != "_"],
+        make_config,
+    ),
+    "LinkLabel": SerdeConfig(LinkLabel, ["mean", "covariance"], None),
+    "Transform": SerdeConfig(Transform, ["x", "y", "z", "qx", "qy", "qz", "qw"], None),
 }
