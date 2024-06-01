@@ -52,6 +52,7 @@ Here are the rough goals of this project:
         "scipy",
         "scikit-image",
         "tqdm",
+        "threeviz",
     ],
     setup_requires=["pybind11_cmake"],
     ext_modules=[CMakeExtension("yag_slam_cpp")],

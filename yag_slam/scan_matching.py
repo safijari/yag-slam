@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from numba import njit, prange
+# from numba import njit, prange
 from tiny_tf.tf import Transform
 import numpy as np
 import cv2
@@ -48,8 +48,8 @@ class Scan2DMatcherPy(object):
         cfg.update(config_dict)
         self.search_size = cfg['search_size']
         self.resolution = cfg['resolution']
-        self.angle_size = cfg['angle_size']
-        self.angle_res = cfg['angle_res']
+        self.angle_size = cfg['coarse_search_angle_offset']
+        self.angle_res = cfg['coarse_angle_resolution']
         self.range_threshold = cfg['range_threshold']
         self.smear_deviation = cfg['smear_deviation']
 

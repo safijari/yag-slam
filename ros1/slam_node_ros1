@@ -303,9 +303,6 @@ class YAGSlamRos1(Thread):
 
         self.queue.put((msg, pose, up_xform.z < 0))
 
-        # with open("/home/jari/Documents/lidar data/" + str(int(time.time())), "w") as ff:
-        #     ff.write(json.dumps({"msg": str(msg), "pose": [pose.x, pose.y, pose.yaw]}))
-
 def main(*, base_map_path=None, x=0.0, y=0.0, th=0.0):
     rospy.init_node('yag_slam', anonymous=False)
 

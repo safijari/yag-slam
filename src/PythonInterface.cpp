@@ -83,12 +83,7 @@ PYBIND11_MODULE(yag_slam_cpp, m) {
   py::class_<Vector2<double>>(m, "Vec2_d")
       .def(py::init<double, double>())
       .def_property("x", &Vector2<double>::GetX, &Vector2<double>::SetX)
-      .def_property("y", &Vector2<double>::GetY, &Vector2<double>::SetY)
-      .def("__repr__", [](const Vector2<double> &a) {
-        std::stringstream buffer;
-        buffer << "(x: " << a.GetX() << ", y:" << a.GetY() << ")\n";
-        return buffer.str();
-      });
+      .def_property("y", &Vector2<double>::GetY, &Vector2<double>::SetY);
 
   py::class_<Name>(m, "Name").def(py::init<const std::string &>());
 

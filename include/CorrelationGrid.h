@@ -130,7 +130,7 @@ protected:
     // will smear for two standard deviations, so deviation must be at least 1/2
     // of the resolution
     const double MIN_SMEAR_DISTANCE_DEVIATION = 0.5 * resolution;
-    const double MAX_SMEAR_DISTANCE_DEVIATION = 10 * resolution;
+    const double MAX_SMEAR_DISTANCE_DEVIATION = 100 * resolution;
 
     // check if given value too small or too big
     if (!amath::InRange(m_SmearDeviation, MIN_SMEAR_DISTANCE_DEVIATION,

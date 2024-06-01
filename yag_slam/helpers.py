@@ -21,7 +21,7 @@ from yag_slam_cpp import ScanMatcherConfig
 from collections import namedtuple
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def occupancy_grid_map_to_correlation_grid(map_im, res, smear_deviation=0.05, occupied_value=0):
     V, U = np.where(map_im == occupied_value)
     kernel = calculate_kernel(res, smear_deviation)
@@ -33,7 +33,7 @@ def occupancy_grid_map_to_correlation_grid(map_im, res, smear_deviation=0.05, oc
 
     return cgrid
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def _project_2d_scan(ranges_, xx, yy, rr, min_angle, max_angle, range_threshold=12):
     ranges = ranges_.copy()
     ranges[np.abs(ranges) > range_threshold] = 0
@@ -55,7 +55,7 @@ def _project_2d_scan(ranges_, xx, yy, rr, min_angle, max_angle, range_threshold=
     return xvals, yvals
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def _get_point_readings(ranges_, xx, yy, rr, min_angle, max_angle, angle_increment, range_threshold=12):
     xvals = []
     yvals = []
@@ -78,12 +78,12 @@ def _rotate_points(ptsx, ptsy, angle):
     return (ptsx * np.cos(angle) - ptsy * np.sin(angle), ptsy * np.cos(angle) + ptsx * np.sin(angle))
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def world_to_grid(xy, ox, oy, res):
     return np.round((xy[0] - ox) / res, 0, np.empty_like(xy[0])), np.round((xy[1] - oy) / res, 0, np.empty_like(xy[0]))
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def calculate_kernel(res, smear_deviation):
     size = int(4 * np.round(smear_deviation / res) + 1)
     kernel = np.zeros((size, size))
@@ -97,12 +97,12 @@ def calculate_kernel(res, smear_deviation):
     return kernel
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def in_grid_bounds(x, y, w, h):
     return (0 <= x < w) and (0 <= y < h)
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def smear_point(gx, gy, cgrid, kernel):
     h, w = cgrid.shape
     size = kernel.shape[0]
@@ -119,7 +119,7 @@ def smear_point(gx, gy, cgrid, kernel):
                     cgrid[y, x] = candidate
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def add_scan_to_grid(gx, gy, cgrid, kernel):
     h, w = cgrid.shape
     for i in range(len(gx)):
@@ -131,7 +131,7 @@ def add_scan_to_grid(gx, gy, cgrid, kernel):
         smear_point(x_, y_, cgrid, kernel)
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def score_grid_points_on_grid(cgrid, gx, gy, scaling_factor=100, intify=True):
     h, w = cgrid.shape
     res = 0.0
@@ -146,7 +146,7 @@ def score_grid_points_on_grid(cgrid, gx, gy, scaling_factor=100, intify=True):
     return res
 
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True)
 def score_world_points_on_grid(cgrid, ptsx, ptsy, ox, oy, grid_resolution, scaling_factor=100, intify=True):
     x, y = ptsx, ptsy
     gx, gy = world_to_grid((x, y), ox, oy, grid_resolution)
@@ -295,7 +295,7 @@ def find_best_pose(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size
     return [response, bx, by, bt, XX / norm / response, YY / norm / response, XY / norm / response, TH / th_norm]
 
 
-@njit
+@njit(cache=True)
 def validate_points(ptsx, ptsy, vpx, vpy):
     # pts are known to not be NAN
     msd = 0.2**2
@@ -337,32 +337,28 @@ def print_config(config):
 
 
 default_config = {
-    "angle_variance_penalty": 0.349,
-    "distance_variance_penalty": 0.3,
+    "angle_variance_penalty": 0.3,
+    "distance_variance_penalty": 0.5,
     "coarse_search_angle_offset": 0.349,
     "coarse_angle_resolution": 0.0349,
     "fine_search_angle_resolution": 0.00349,
     "use_response_expansion": True,
     "range_threshold": 20,
     "minimum_angle_penalty": 0.9,
-    "search_size": 0.3,
+    "search_size": 0.5,
     "resolution": 0.01,
     "smear_deviation": 0.03,
 }
 
-default_config_loop = {
-    "angle_variance_penalty": 0.349,
-    "distance_variance_penalty": 0.3,
+default_config_loop = default_config.copy()
+
+default_config_loop.update({
     "coarse_search_angle_offset": 0.349,
     "coarse_angle_resolution": 0.0349,
-    "fine_search_angle_resolution": 0.00349,
-    "use_response_expansion": True,
-    "range_threshold": 20,
-    "minimum_angle_penalty": 0.9,
     "resolution": 0.05,
-    "search_size": 8.0,
+    "search_size": 4.0,
     "smear_deviation": 0.03,
-}
+})
 
 
 def make_config(d):
@@ -370,6 +366,9 @@ def make_config(d):
     config_params = default_config.copy()
     if d:
         config_params.update(d)
+
+    assert 0.5 * config_params["resolution"] <= config_params["smear_deviation"] <= 100 * config_params["resolution"], \
+        f"Smear deviation must be between {0.5 * config_params['resolution']} and {100 * config_params['resolution']}"
 
     for key, value in config_params.items():
         config.__setattr__(key, value)
@@ -432,7 +431,7 @@ class RadiusHashSearch(object):
         return all_elements
 
 
-@njit(parallel=False, nogil=True)
+@njit(parallel=False, nogil=True, cache=True)
 def find_best_pose_non_symmetric(cgrid, local_frame_points, cx, cy, ct, ox, oy, xy_search_size, xy_resolution, angle_search_size,
                                  angle_resolution, grid_resolution, penalize_distance_from_center):
     """
@@ -574,15 +573,37 @@ def find_best_pose_non_symmetric(cgrid, local_frame_points, cx, cy, ct, ox, oy, 
     return [response, bx, by, bt, XX / norm / response, YY / norm / response, XY / norm / response, TH / th_norm]
 
 
-def visualize_slam_threeviz(slam, color="red", prefix=""):
+def visualize_slam_threeviz(slam, color="red", prefix="", also_show_lasers=False, resolution=0.05):
     from threeviz.api import plot_3d, plot_pose, plot_polygon
+    from threeviz.api import plot_plane_tex
+    from tiny_tf.tf import Transform
+
     for ii, v in enumerate(slam.graph.vertices):
-        lrs = v.obj
-        _ = plot_3d(lrs.points()[0], lrs.points()[1], lrs.points()[0]*0, prefix+"scan"+str(ii), size=0.02, color=color)
-        plot_pose(lrs.corrected_pose, prefix+"pose" + str(ii), size=0.1)
-        time.sleep(0.001)
+       lrs = v.obj
+       if also_show_lasers:
+           _ = plot_3d(lrs.points()[0], lrs.points()[1], lrs.points()[0]*0, prefix+"scan"+str(ii), size=0.02, color=color)
+           time.sleep(0.001)
+       plot_pose(lrs.corrected_pose, prefix+"pose" + str(ii), size=0.1)
 
     for ii, e in enumerate(slam.graph.edges):
         s, t = e.source.obj, e.target.obj
         plot_polygon([[s.corrected_pose.x, s.corrected_pose.y, 0], 
                       [t.corrected_pose.x, t.corrected_pose.y, 0]], prefix+"edge" + str(ii), color=color)
+
+    res = resolution
+    grid = slam.make_occupancy_grid(resolution=res)
+
+    im = grid.image[::-1, :]
+
+    pwb = im.shape[1] * res
+    phb = im.shape[0] * res
+
+    oxb = grid.offset.x + pwb / 2
+    oyb = grid.offset.y + phb / 2
+
+    return plot_plane_tex(Transform.from_xyt_deg(oxb, oyb, 0), "map", im, pixel_to_meters=res)
+
+def load_intel_dataset():
+    # Get datasets from here
+    # https://www.ipb.uni-bonn.de/datasets/
+    pass
