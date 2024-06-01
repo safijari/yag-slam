@@ -120,7 +120,7 @@ class YAGSlamRos1(Thread):
         loop_scan_matcher_config.update({
             "search_size": _p("~loop_matching_search_size", 8.0),
             "resolution": _p("~loop_matching_resolution", 0.05),
-            "smear_deviation": _p("~loop_matching_smear_deviation", 0.03),
+            "smear_deviation": _p("~loop_matching_smear_deviation", 0.05),
         })
 
         seq_matcher = Scan2DMatcherCpp(config_dict=seq_scan_matcher_config)

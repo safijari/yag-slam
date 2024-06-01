@@ -347,7 +347,7 @@ default_config = {
     "minimum_angle_penalty": 0.9,
     "search_size": 0.5,
     "resolution": 0.01,
-    "smear_deviation": 0.03,
+    "smear_deviation": 0.05,
 }
 
 default_config_loop = default_config.copy()
@@ -357,7 +357,7 @@ default_config_loop.update({
     "coarse_angle_resolution": 0.0349,
     "resolution": 0.05,
     "search_size": 4.0,
-    "smear_deviation": 0.03,
+    "smear_deviation": 0.05,
 })
 
 

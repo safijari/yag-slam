@@ -163,7 +163,7 @@ class YAGSlamRos1(Thread):
             "minimum_angle_penalty": _p("~minimum_angle_penalty", 0.9),
             "search_size": _p("~sequential_matching_search_size", 0.5),
             "resolution": _p("~sequential_matching_resolution", 0.01),
-            "smear_deviation": _p("~sequential_matching_smear_deviation", 0.03),
+            "smear_deviation": _p("~sequential_matching_smear_deviation", 0.05),
         }
 
         loop_scan_matcher_config = seq_scan_matcher_config.copy()
