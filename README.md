@@ -1,7 +1,6 @@
 # YAG SLAM (Yet Another Graph SLAM)
 
-![yag-slam-intel](https://github.com/safijari/yag-slam/assets/5191844/bf384bba-073f-450d-9490-63a302fa11e9)
-
+<img src="https://github.com/safijari/yag-slam/assets/5191844/bf384bba-073f-450d-9490-63a302fa11e9" width="250" height="250"/>
 
 Quick blurb on project goals: YAG SLAM is meant to be a complete graph SLAM system for life long mapping for robots using either 2D or 3D sensors. In its current form it is basically the same as Open Karto, even keeping the scan matcher from Karto mostly as is. The graph bits (including serialization/deserialization) however are implemented in Python and SBA is being used to do the graph optimization.
 
