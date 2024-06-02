@@ -5,7 +5,7 @@
 cd /repo
 
 rm -r build
-# rm -r dist
+rm -r dist
 
 set -e
 
