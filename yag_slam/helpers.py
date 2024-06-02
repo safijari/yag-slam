@@ -367,8 +367,8 @@ def make_config(d):
     if d:
         config_params.update(d)
 
-    assert 0.5 * config_params["resolution"] <= config_params["smear_deviation"] <= 100 * config_params["resolution"], \
-        f"Smear deviation must be between {0.5 * config_params['resolution']} and {100 * config_params['resolution']}"
+    assert 0.5 * config_params["resolution"] <= config_params["smear_deviation"] <= 10 * config_params["resolution"], \
+        f"Smear deviation must be between {0.5 * config_params['resolution']} and {10 * config_params['resolution']}"
 
     for key, value in config_params.items():
         config.__setattr__(key, value)

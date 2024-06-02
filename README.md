@@ -16,33 +16,30 @@ The goals of the project are:
 - Support any sensor type so long as a scan matcher and a loop closure checker are supplied.
 
 ## How to use this package
-For mapping in ROS 1 simply running the `slam_node_ros1` script is sufficient. Parameters can be set through ROS and include:
+For mapping in ROS 1 simply running the `slam_node_ros1` script is sufficient. Parameters can be set through ROS and are the same as the ones used in Karto and you can get more details on this from the Karto readme. Instead of describing them I'll give comments on how to tune them.
 
-| Parameter | Description | Default Value |
-|:----------|:------------|:--------------|
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
-|           |             |               |
+| Parameter                        | Default | Comment                                                                                                                                                                                                          |
+|:---------------------------------|:--------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `angle_variance_penalty`         | 0.3     | Increase if your odom is good                                                                                                                                                                                    |
+| `distance_variance_penalty`      | 0.5     | Increase if your odom is good                                                                                                                                                                                    |
+| `coarse_search_angle_offset`     | 0.349   | Can decrease if odom is good, impacts compute time                                                                                                                                                               |
+| `coarse_angle_resolution`        | 0.0349  | Probably don't need to change this                                                                                                                                                                               |
+| `fine_search_angle_resolution`   | 0.00349 | Probably don't need to change this                                                                                                                                                                               |
+| `use_response_expansion`         | True    | Can probably disable is odom is good, can increase compute time                                                                                                                                                  |
+| `range_threshold`                | 30      | Set based on reliable range for your sensor                                                                                                                                                                      |
+| `search_size`                    | 0.5     | dx and dy for scan matcher, can decrease if odom is good, impacts compute time                                                                                                                                   |
+| `resolution`                     | 0.01    | Steps in x and y direction for scan matcher, search_size must be an integer multiple, impacts compute time                                                                                                       |
+| `smear_deviation`                | 0.05    | Must be between `0.5 * resolution` and `10 * resolution`, determines size of gaussian described in the (SRI paper)[https://april.eecs.umich.edu/pdfs/olson2009icra.pdf], larger values can help when odom is bad |
+| `loop_matching_search_size`      | 4       | Same as search size but for finding loops, larger values would be needed if odom and sensor quality are bad but that can also lead to more incorrect loop closures, impacts compute time                         |
+| `loop_matching_resolution`       | 0.05    | Same as resolution but for loop search                                                                                                                                                                           |
+| `loop_meatching_smear_deviation` | 0.05    | Same ... you know                                                                                                                                                                                                |
+| `odom_frame`                     | `odom`  |                                                                                                                                                                                                                  |
+| `map_frame`                      | `map`   |                                                                                                                                                                                                                  |
+| `min_distance`                   | 0.5     | Linear distance (m) that the robot must travel to trigger integrating a scan, smaller values could lead to error accumulation but might be needed if odom is bad                                                 |
+| `min_rotation`                   | 0.5     | Rotation (rad) ...                                                                                                                                                                                               |
+| `loop_search_min_chain_size`     | 10      | Number of connected together scans from a previous traversal in one area to consider for loop closure, depends a bit on `min_distance` and `min_rotation`, higher values lead to less likely loop closures       |
+| `min_response_coarse`            | 0.35    | Minimum confidence of loop closure scan matcher for considering a loop closure, larger values lead to higher quality but less likely loop closures                                                               |
+| `min_response_fine`              | 0.45    | Same as previous but for the second stage of accepting a loop closure candidate                                                                                                                                  |
+| `range_threshold_for_map`        | 12      | Effective range of sensor for creating the map. Larger values could lead to a less clean map, smaller values require more data near all obstacles                                                                |
+| `scan_buffer_len`                | 10      | How many running scans to keep to correct odom errors against, maybe don't decrease this, larger values can lead to higher compute time and possibly worse performance as well                                   |
+| `map_resolution`                 | 0.05    | How many meters to a pixel in the final map                                                                                                                                                                      |
