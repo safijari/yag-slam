@@ -13,14 +13,7 @@ yum install boost-thread boost-chrono boost-devel -y
 
 /opt/python/cp311-cp311/bin/pip install -U auditwheel
 
-for folder in /opt/python/cp311*
-do
-    echo $folder
-    $folder/bin/pip install pybind11 pybind11-cmake
-    $folder/bin/python setup.py bdist_wheel
-done
-
-for folder in /opt/python/cp37*
+for folder in /opt/python/cp3*
 do
     echo $folder
     $folder/bin/pip install pybind11 pybind11-cmake
