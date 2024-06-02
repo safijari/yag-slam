@@ -57,5 +57,6 @@ Here are the rough goals of this project:
     setup_requires=["pybind11_cmake"],
     ext_modules=[CMakeExtension("yag_slam_cpp")],
     cmdclass=dict(build_ext=CMakeBuild),
+    scripts=["ros1/slam_node_ros1"],
     zip_safe=False,
 )
