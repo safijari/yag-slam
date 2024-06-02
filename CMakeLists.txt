@@ -29,10 +29,8 @@ endif()
 
 add_subdirectory(pybind11)
 
-find_package(Boost COMPONENTS thread atomic REQUIRED)
-
 pybind11_add_module(yag_slam_cpp src/PythonInterface.cpp src/Impls.cpp src/ScanMatcher.cpp)
-target_link_libraries(yag_slam_cpp PRIVATE Boost::thread Boost::atomic)
+target_link_libraries(yag_slam_cpp)
 
 if (catkin_FOUND)
   install(TARGETS yag_slam_cpp
