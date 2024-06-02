@@ -11,11 +11,17 @@ jobs:
       run: git submodule update --init --recursive
     - name: Build in manylinux container
       run: docker run --rm -v `pwd`:/repo --rm safijari/manylinux_2_28-x64 /repo/build.sh manylinux_2_28_x86_64
+    - name: Tar up artifacts
+      run: tar -czf dist1.tar.gz dist/
     - name: Build in manylinux container legacy
       run: docker run --rm -v `pwd`:/repo --rm safijari/manylinux2014-x64 /repo/build.sh manylinux2014_x86_64
     - name: Tar up artifacts
-      run: tar -czf dist.tar.gz dist/
+      run: tar -czf dist2.tar.gz dist/
     - uses: actions/upload-artifact@main
       with:
-        name: dist
-        path: dist/
+        name: dist1
+        path: dist1.tar.gz
+    - uses: actions/upload-artifact@main
+      with:
+        name: dist2
+        path: dist2.tar.gz
