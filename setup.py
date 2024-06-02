@@ -27,7 +27,7 @@ from pybind11_cmake import CMakeExtension, CMakeBuild
 
 setup(
     name="yag_slam",
-    version="0.1.5",
+    version="0.2.5",
     author="Jariullah Safi",
     author_email="safijari@isu.edu",
     description="A complete 2D and 3D graph SLAM implementation using plagiarized code from SRI's OpenKarto",
