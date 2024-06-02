@@ -331,4 +331,4 @@ class GraphSlam(object):
         return res, closed
 
     def make_occupancy_grid(self, resolution=0.05, range_threshold=12):
-        return create_occupancy_grid([v.obj._scan for v in slam.graph.vertices[len(scans):]], 0.05, 12)
+        return create_occupancy_grid([v.obj._scan for v in self.graph.vertices], resolution, range_threshold)

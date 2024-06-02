@@ -1,4 +1,19 @@
-from numba import njit, prange
+# Copyright 2019 Jariullah Safi
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# from numba import njit, prange
 from tiny_tf.tf import Transform
 import numpy as np
 import cv2
@@ -15,7 +30,7 @@ ScanMatcherResult = namedtuple('ScanMatcherResult',
                                ['response', 'covariance', 'best_pose', 'meta'])
 
 class Scan2DMatcherCpp(object):
-    def __init__(self, config_dict={}, loop=False):
+    def __init__(self, config_dict=None, loop=False):
         cfg = default_config if not loop else default_config_loop
         cfg = cfg.copy()
         cfg.update(config_dict)
@@ -27,15 +42,16 @@ class Scan2DMatcherCpp(object):
         return ScanMatcherResult(res.response, res.covariance, Transform.from_pose2d(res.best_pose), None)
 
 
-class Scan2DMatcher(object):
-    def __init__(self, search_size=0.5, resolution=0.01, angle_size=0.349, angle_res=0.0349, range_threshold=12, smear_deviation=0.1):
-        self.search_size = search_size
-        self.resolution = resolution
-        self.angle_size = angle_size
-        self.angle_res = angle_res
-        self.range_threshold = range_threshold
-        self.smear_deviation = smear_deviation
-
+class Scan2DMatcherPy(object):
+    def __init__(self, config_dict=None):
+        cfg = default_config.copy()
+        cfg.update(config_dict)
+        self.search_size = cfg['search_size']
+        self.resolution = cfg['resolution']
+        self.angle_size = cfg['coarse_search_angle_offset']
+        self.angle_res = cfg['coarse_angle_resolution']
+        self.range_threshold = cfg['range_threshold']
+        self.smear_deviation = cfg['smear_deviation']
 
     def match_scan_sets(self, query_scans, base_scans, penalty=True, do_fine=True):
         search_size = self.search_size

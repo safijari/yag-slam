@@ -27,7 +27,7 @@ from pybind11_cmake import CMakeExtension, CMakeBuild
 
 setup(
     name="yag_slam",
-    version="0.1.5",
+    version="0.2.5",
     author="Jariullah Safi",
     author_email="safijari@isu.edu",
     description="A complete 2D and 3D graph SLAM implementation using plagiarized code from SRI's OpenKarto",
@@ -52,6 +52,7 @@ Here are the rough goals of this project:
         "scipy",
         "scikit-image",
         "tqdm",
+        "threeviz",
     ],
     setup_requires=["pybind11_cmake"],
     ext_modules=[CMakeExtension("yag_slam_cpp")],

@@ -11,16 +11,9 @@ set -e
 
 yum install boost-thread boost-chrono boost-devel -y
 
-/opt/python/cp311-cp311/bin/pip install -U auditwheel
+/opt/python/cp38-cp38/bin/pip install -U auditwheel
 
-for folder in /opt/python/cp311*
-do
-    echo $folder
-    $folder/bin/pip install pybind11 pybind11-cmake
-    $folder/bin/python setup.py bdist_wheel
-done
-
-for folder in /opt/python/cp37*
+for folder in /opt/python/cp3*
 do
     echo $folder
     $folder/bin/pip install pybind11 pybind11-cmake
@@ -31,5 +24,5 @@ cd dist
 
 for file in ./*
 do
-    /opt/python/cp311-cp311/bin/auditwheel -v repair --plat manylinux_2_28_x86_64 $file
+    /opt/python/cp38-cp38/bin/auditwheel -v repair --plat $1 $file
 done
