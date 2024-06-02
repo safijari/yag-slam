@@ -15,6 +15,8 @@ The goals of the project are:
 - Do map saving, loading, and modification using portable formats (currently `Graph state -> dict -> compressed msgpack`) to allow for tool development outside of ROS. I shouldn't need to provide specialized code to my web developer colleagues for them to just render the state of the underlying graph (see above for an example).
 - Support any sensor type so long as a scan matcher and a loop closure checker are supplied.
 
+See this (colab notebook)[https://colab.research.google.com/drive/1aRWEo1zC9_3JGv1zg_DOmhNwHoUCXfdh#scrollTo=75chReEdmlmN] for live examples of how to use the various aspects of this library. This is currently under construction and new examples will be added soon.
+
 ## Installation
 There isn't yet a ROS package (and there may never be). YAG SLAM can be installed via pip. For ROS Noetic you might need to install the packages using the commands below due to the pip version on Ubuntu 20.04
 
