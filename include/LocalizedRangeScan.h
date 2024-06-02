@@ -192,7 +192,7 @@ public:
   virtual ~LocalizedRangeScan() {}
 
 private:
-  mutable std::shared_mutex m_Lock;
+  mutable std::shared_timed_mutex m_Lock;
 
 public:
   /**
@@ -233,11 +233,11 @@ public:
    * Gets barycenter of point readings
    */
   inline const Pose2 &GetBarycenterPose() const {
-    std::shared_lock<std::shared_mutex> lock(m_Lock);
+    std::shared_lock<std::shared_timed_mutex> lock(m_Lock);
     if (m_IsDirty) {
       // throw away constness and do an update!
       lock.unlock();
-      std::unique_lock<std::shared_mutex> uniqueLock(m_Lock);
+      std::unique_lock<std::shared_timed_mutex> uniqueLock(m_Lock);
       const_cast<LocalizedRangeScan *>(this)->Update();
     }
 
@@ -249,11 +249,11 @@ public:
    * @return bounding box of this scan
    */
   inline const BoundingBox2 &GetBoundingBox() const {
-    std::shared_lock<std::shared_mutex> lock(m_Lock);
+    std::shared_lock<std::shared_timed_mutex> lock(m_Lock);
     if (m_IsDirty) {
       // throw away constness and do an update!
       lock.unlock();
-      std::unique_lock<std::shared_mutex> uniqueLock(m_Lock);
+      std::unique_lock<std::shared_timed_mutex> uniqueLock(m_Lock);
       const_cast<LocalizedRangeScan *>(this)->Update();
     }
 
@@ -265,11 +265,11 @@ public:
    */
   inline const PointVectorDouble &
   GetPointReadings(bool wantFiltered = false) const {
-    std::shared_lock<std::shared_mutex> lock(m_Lock);
+    std::shared_lock<std::shared_timed_mutex> lock(m_Lock);
     if (m_IsDirty) {
       // throw away constness and do an update!
       lock.unlock();
-      std::unique_lock<std::shared_mutex> uniqueLock(m_Lock);
+      std::unique_lock<std::shared_timed_mutex> uniqueLock(m_Lock);
       const_cast<LocalizedRangeScan *>(this)->Update();
     }
 
