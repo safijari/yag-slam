@@ -9,7 +9,7 @@ rm -r dist
 
 set -e
 
-yum install boost-thread boost-chrono boost-devel -y
+yum install boost-thread boost-atomic boost-chrono boost-devel -y
 
 /opt/python/cp38-cp38/bin/pip install -U auditwheel
 
