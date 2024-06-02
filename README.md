@@ -15,6 +15,13 @@ The goals of the project are:
 - Do map saving, loading, and modification using portable formats (currently `Graph state -> dict -> compressed msgpack`) to allow for tool development outside of ROS. I shouldn't need to provide specialized code to my web developer colleagues for them to just render the state of the underlying graph (see above for an example).
 - Support any sensor type so long as a scan matcher and a loop closure checker are supplied.
 
+## Installation
+There isn't yet a ROS package (and there may never be). YAG SLAM can be installed via pip. For ROS Noetic you might need to install the packages using the commands below due to the pip version on Ubuntu 20.04
+
+```pip3 install https://files.pythonhosted.org/packages/4f/39/bda0165a68b59ca277625791b788510a6d93b160476fec4e2f0585f9b581/sparse_bundle_adjustment-0.9.6-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl```
+
+Alternatively you can build the Dockerfile.
+
 ## How to use this package
 For mapping in ROS 1 simply running the `slam_node_ros1` script is sufficient. Parameters can be set through ROS and are the same as the ones used in Karto and you can get more details on this from the Karto readme. Instead of describing them I'll give comments on how to tune them.
 
