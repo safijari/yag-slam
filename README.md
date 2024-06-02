@@ -18,9 +18,12 @@ The goals of the project are:
 See this [colab notebook](https://colab.research.google.com/drive/1aRWEo1zC9_3JGv1zg_DOmhNwHoUCXfdh#scrollTo=75chReEdmlmN) for live examples of how to use the various aspects of this library. This is currently under construction and new examples will be added soon.
 
 ## Installation
-There isn't yet a ROS package (and there may never be). YAG SLAM can be installed via pip. For ROS Noetic you might need to install the packages using the commands below due to the pip version on Ubuntu 20.04
+There isn't yet a ROS package (and there may never be). YAG SLAM can be installed via pip (`pip install yag-slam`). For ROS Noetic you might need to install the packages using the commands below due to the pip version on Ubuntu 20.04
 
-```pip3 install https://files.pythonhosted.org/packages/4f/39/bda0165a68b59ca277625791b788510a6d93b160476fec4e2f0585f9b581/sparse_bundle_adjustment-0.9.6-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl```
+```
+pip install https://files.pythonhosted.org/packages/4f/39/bda0165a68b59ca277625791b788510a6d93b160476fec4e2f0585f9b581/sparse_bundle_adjustment-0.9.6-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+pip install https://files.pythonhosted.org/packages/e2/dc/035e39a94f3bcfe795194e8026fc778dcd89b8394c0d424f00420b05f05a/yag_slam-0.2.5-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+```
 
 Alternatively you can build the Dockerfile.
 
