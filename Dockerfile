@@ -7,6 +7,7 @@ SHELL ["/bin/bash", "-c"]
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends apt-utils python3-pip git ros-noetic-tf2-geometry-msgs libsm6
+RUN apt install python3-catkin-tools ros-noetic-slam-toolbox-msgs -y
 
 ARG USER=yag
 
@@ -24,8 +25,6 @@ RUN source /opt/ros/noetic/setup.bash \
     && cd /home/$USER/catkin_ws \
     && rosdep update \
     && rosdep install -y -r --from-paths src --ignore-src --rosdistro=noetic -y
-
-RUN apt install python3-catkin-tools ros-noetic-slam-toolbox-msgs -y
 
 USER ${USER}
 
