@@ -22,12 +22,8 @@ import cv2
 from threading import Thread, Lock
 import traceback
 from queue import Queue
-import json
 import argh
 import yaml
-import numpy as np
-import msgpack
-import zlib
 
 
 def tftopose2(msg):
@@ -86,8 +82,8 @@ class YAGSlamRos1(Thread):
         self.min_rotation = _p('~min_rotation', 0.5)
         self.loop_search_min_chain_size = _p('~loop_search_min_chain_size', 10)
         self.loop_search_distance = _p('~loop_search_distance', 4.0)
-        self.min_response_coarse = _p('~min_response_coarse', 0.35)
-        self.min_response_fine = _p('~min_response_fine', 0.45)
+        self.min_response_coarse = _p('~min_response_coarse', 0.6)
+        self.min_response_fine = _p('~min_response_fine', 0.7)
         self.range_threshold_for_map = _p('~range_threshold_for_map', 12)
         self.range_threshold = _p('~range_threshold', 30)
         self.scan_buffer_len = _p('~scan_buffer_len', 10)
@@ -122,11 +118,11 @@ class YAGSlamRos1(Thread):
         self.start()
 
     def save_graph(self, trigger_cmd):
-        out = zlib.compress(msgpack.packb(self.mapper.serialize()))
+        out = self.mapper.binarize()
         if trigger_cmd is not None:
             fixed_path = trigger_cmd.filename
         else:
-            fixed_path = os.path.expanduser("~") + "/.jari/maps/" + "map.graph"
+            fixed_path = "/tmp/map.graph"
         with open(fixed_path, "wb") as ff:
             print("Saving graph at {}".format(fixed_path))
             ff.write(out)

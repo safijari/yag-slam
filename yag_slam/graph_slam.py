@@ -48,7 +48,8 @@ class GraphSlam(object):
             loop_search_dist=3,
             loop_search_min_chain_size=10,
             min_response_coarse=0.35,
-            min_response_fine=0.45):
+            min_response_fine=0.45,
+            verbose=False):
 
         self.seq_matcher = seq_matcher
         self.loop_matcher = loop_matcher
@@ -66,6 +67,8 @@ class GraphSlam(object):
         self.search = RadiusHashSearch([], res=self.loop_search_dist)
         self.min_response_coarse = min_response_coarse
         self.min_response_fine = min_response_fine
+
+        self.verbose = verbose
 
     @classmethod
     def default(cls):
@@ -216,11 +219,12 @@ class GraphSlam(object):
             # resp 0.35 for coarse, 0.4 for fine?
             # covar 3.0 for coarse?????
             if res_coarse.response < self.min_response_coarse:
-                print("not good coarse response {}".format(res_coarse.response))
+                if self.verbose:
+                    print(f"Loop closure coarse response is not good {} < {self.min_response_coarse}".format(res_coarse.response))
                 continue
 
             if res_coarse.covariance[0][0] > 3.0 or res_coarse.covariance[1][1] > 3.0:
-                print("WARN: covariance too high for coarse")
+                print("WARN: Covariance is too high for coarse coarse response during loop closure")
 
             p = res_coarse.best_pose
 
@@ -230,7 +234,7 @@ class GraphSlam(object):
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
             if res.response < self.min_response_fine:
-                print("not good fine response {}".format(res.response))
+                print("Loop closure fine response is not good {}".format(res.response))
                 continue
 
             scan.corrected_pose = res.best_pose
