@@ -220,7 +220,7 @@ class GraphSlam(object):
             # covar 3.0 for coarse?????
             if res_coarse.response < self.min_response_coarse:
                 if self.verbose:
-                    print(f"Loop closure coarse response is not good {} < {self.min_response_coarse}".format(res_coarse.response))
+                    print(f"Loop closure coarse response is not good {res_coarse.response} < {self.min_response_coarse}")
                 continue
 
             if res_coarse.covariance[0][0] > 3.0 or res_coarse.covariance[1][1] > 3.0:
@@ -234,7 +234,7 @@ class GraphSlam(object):
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
             if res.response < self.min_response_fine:
-                print("Loop closure fine response is not good {}".format(res.response))
+                print(f"Loop closure fine response is not good {res.response}")
                 continue
 
             scan.corrected_pose = res.best_pose
