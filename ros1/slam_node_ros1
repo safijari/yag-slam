@@ -186,7 +186,17 @@ class YAGSlamRos1(Thread):
 
     def _make_map(self, msg=True):
         grid = create_occupancy_grid([v.obj._scan for v in self.mapper.graph.vertices], self.map_resolution, self.range_threshold_for_map)
-        im = grid.image.astype('int16')
+        im = grid.image
+
+        # do cleanup
+        static_only = 255-im.copy()
+        static_only[static_only < 200] = 0
+        num_conn, mask, stats, position = cv2.connectedComponentsWithStats(static_only)
+        for ii, stat in enumerate(stats):
+            if stat[-1] < 5:
+                im[mask == ii] = 255
+
+        im = im.astype('int16')
         im[im == 0] = 100
         im[im == 200] = -1
         im[im == 255] = 0
