@@ -21,7 +21,7 @@ from numba import njit
 from skimage.segmentation import slic, mark_boundaries, find_boundaries
 from yag_slam.models import LocalizedRangeScan
 from yag_slam.raytracing import run_raytracing_sweep
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import numpy as np
 from collections import defaultdict
 import cv2

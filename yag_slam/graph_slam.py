@@ -80,7 +80,7 @@ class GraphSlam(object):
         out['edges'] = [[e.source.obj.num, e.target.obj.num, _serialize(e.info)] for e in self.graph.edges]
         out['running_scans'] = [s.num for s in self.running_scans]
         out['seq_matcher_config'] = _serialize(self.seq_matcher.config)
-        out['loop_matcher_config'] = _serialize(self.loop_matcher.config)
+        out['loop_matcher_config'] = _serialize(self.loop_matcher.config) if self.loop_matcher else None
         out['scan_buffer_len'] = self.scan_buffer_len
         out['loop_search_dist'] = self.loop_search_dist
         out['loop_search_min_chain_size'] = self.loop_search_min_chain_size
@@ -107,9 +107,10 @@ class GraphSlam(object):
 
     @classmethod
     def deserialize(cls, d):
+        loop_matcher = Scan2DMatcherCpp({k: v for k, v in d['loop_matcher_config'].items() if k != '___name'}) if d["loop_matcher_config"] else None
         obj = cls(
                   Scan2DMatcherCpp({k: v for k, v in d['seq_matcher_config'].items() if k != '___name'}),
-                  Scan2DMatcherCpp({k: v for k, v in d['loop_matcher_config'].items() if k != '___name'}),
+                  loop_matcher,
                   d['scan_buffer_len'],
                   d['loop_search_dist'], d['loop_search_min_chain_size'],
                   d['min_response_coarse'], d['min_response_fine'])
@@ -154,7 +155,8 @@ class GraphSlam(object):
         """
         last_scan = self.running_scans[-1]
         self.link_scans(last_scan, scan, scan.corrected_pose, covariance)
-        self.link_to_closest_scan_in_chain(scan, self.running_scans, scan.corrected_pose, covariance)
+        if self.loop_matcher:
+            self.link_to_closest_scan_in_chain(scan, self.running_scans, scan.corrected_pose, covariance)
 
     def link_scans(self, from_scan, to_scan, mean, covariance, supl=None):
         to_vert = self.graph.vertices[to_scan.num]

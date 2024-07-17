@@ -581,14 +581,15 @@ def visualize_slam_threeviz(slam, color="red", prefix="", also_show_lasers=False
     for ii, v in enumerate(slam.graph.vertices):
        lrs = v.obj
        if also_show_lasers:
-           _ = plot_3d(lrs.points()[0], lrs.points()[1], lrs.points()[0]*0, prefix+"scan"+str(ii), size=0.02, color=color)
+           _ = plot_3d(lrs.points()[0], lrs.points()[1], lrs.points()[0]*0 + 0.1, prefix+"scan"+str(ii), size=0.02, color=color)
            time.sleep(0.001)
-       plot_pose(lrs.corrected_pose, prefix+"pose" + str(ii), size=0.1)
+       plot_pose(lrs.corrected_pose + Transform(0, 0, 0.1), prefix+"pose" + str(ii), size=0.1)
 
     for ii, e in enumerate(slam.graph.edges):
         s, t = e.source.obj, e.target.obj
-        plot_polygon([[s.corrected_pose.x, s.corrected_pose.y, 0], 
-                      [t.corrected_pose.x, t.corrected_pose.y, 0]], prefix+"edge" + str(ii), color=color)
+        plot_polygon([[s.corrected_pose.x, s.corrected_pose.y, 0.1], 
+                      [t.corrected_pose.x, t.corrected_pose.y, 0.1]], prefix+"edge" + str(ii), color=color)
+        time.sleep(0.001)
 
     res = resolution
     grid = slam.make_occupancy_grid(resolution=res)
