@@ -208,7 +208,7 @@ class GraphSlam(object):
 
         chains = self.find_possible_loop_closure_chains(scan)
 
-        if len(chains) > 0:
+        if len(chains) > 0 and self.verbose:
             print("Found {} chains for loop closure".format(len(chains)))
 
 
@@ -233,7 +233,7 @@ class GraphSlam(object):
 
             res = self.seq_matcher.match_scan(tmpscan, chain, False, True)
 
-            if res.response < self.min_response_fine:
+            if res.response < self.min_response_fine and self.verbose:
                 print(f"Loop closure fine response is not good {res.response}")
                 continue
 
@@ -252,7 +252,8 @@ class GraphSlam(object):
             break
 
         if closed:
-            print("successful loop closure")
+            if self.verbose:
+                print("successful loop closure")
             self.run_opt()
 
         return closed
@@ -260,7 +261,8 @@ class GraphSlam(object):
     def run_opt(self):
         begin = time.time()
         self.opt.compute(100, 1.0e-4, True, 1.0e-9, 50)
-        print("opt took {} seconds".format(time.time() - begin))
+        if self.verbose:
+            print("opt took {} seconds".format(time.time() - begin))
 
         for node, vtx in zip(self.opt.nodes, self.graph.vertices):
             vtx.obj.corrected_pose = Transform.from_pose2d(Pose2(node.x, node.y, node.yaw))
