@@ -220,3 +220,5 @@ class Scan2DMatcherPy(object):
         return ScanMatcherResult(res, covar,
                                  Transform.from_position_euler(x, y, 0, 0, 0, t),
                                  meta)
+
+Scan2DMatcher = Scan2DMatcherPy
