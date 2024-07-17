@@ -15,9 +15,9 @@
 
 import numpy as np
 
-from yag_slam_cpp import LocalizedRangeScan, LaserScanConfig, Pose2
+from karto_scanmatcher import LocalizedRangeScan, LaserScanConfig, Pose2
 
-from yag_slam_cpp import Wrapper, ScanMatcherConfig
+from karto_scanmatcher import Wrapper, ScanMatcherConfig
 
 
 def main():

@@ -4,7 +4,7 @@ import rospy
 from yag_slam.graph_slam import GraphSlam, make_near_scan_visitor
 from yag_slam.scan_matching import Scan2DMatcherCpp
 from yag_slam.graph import do_breadth_first_traversal
-from yag_slam_cpp import create_occupancy_grid, Pose2
+from karto_scanmatcher import create_occupancy_grid, Pose2
 from yag_slam.models import LocalizedRangeScan
 from yag_slam.splicing import map_to_graph
 from tiny_tf.tf import Transform

@@ -19,7 +19,7 @@ import numpy as np
 import cv2
 import time
 from collections import defaultdict, namedtuple
-from yag_slam_cpp import Wrapper, LaserScanConfig
+from karto_scanmatcher import Wrapper, LaserScanConfig
 from yag_slam.helpers import make_config, default_config, default_config_loop
 from yag_slam.helpers import (_get_point_readings, _project_2d_scan,
                               _rotate_points, calculate_kernel, validate_points,

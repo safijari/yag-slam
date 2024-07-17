@@ -17,7 +17,7 @@ import math
 import time
 from numba import njit, prange
 import numpy as np
-from yag_slam_cpp import ScanMatcherConfig
+from karto_scanmatcher import ScanMatcherConfig
 from collections import namedtuple
 
 

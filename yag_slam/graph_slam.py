@@ -15,7 +15,7 @@
 
 
 from yag_slam.helpers import print_config, default_config, make_config, scans_dist_squared, default_config_loop, RadiusHashSearch
-from yag_slam_cpp import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2, create_occupancy_grid
+from karto_scanmatcher import Wrapper, ScanMatcherConfig, LocalizedRangeScan, Pose2, create_occupancy_grid
 from yag_slam.scan_matching import Scan2DMatcherCpp
 from uuid import uuid4
 from tiny_tf.tf import Transform

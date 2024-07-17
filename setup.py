@@ -15,19 +15,9 @@
 
 from setuptools import setup, find_packages
 
-try:
-    import pybind11_cmake
-except ImportError:
-    print("pybind11-cmake must be installed." "Try \n \t pip install pybind11_cmake")
-    import sys
-
-    sys.exit()
-
-from pybind11_cmake import CMakeExtension, CMakeBuild
-
 setup(
     name="yag_slam",
-    version="0.2.5",
+    version="0.3.0",
     author="Jariullah Safi",
     author_email="safijari@isu.edu",
     description="A complete 2D and 3D graph SLAM implementation using plagiarized code from SRI's OpenKarto",
@@ -53,10 +43,8 @@ Here are the rough goals of this project:
         "scikit-image",
         "tqdm",
         "threeviz",
+        "karto_scanmatcher==1.0.0",
     ],
-    setup_requires=["pybind11_cmake"],
-    ext_modules=[CMakeExtension("yag_slam_cpp")],
-    cmdclass=dict(build_ext=CMakeBuild),
     scripts=["ros1/slam_node_ros1"],
     zip_safe=False,
 )

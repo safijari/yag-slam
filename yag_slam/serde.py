@@ -16,7 +16,7 @@
 from collections import namedtuple
 import json
 from yag_slam.helpers import make_config
-from yag_slam_cpp import ScanMatcherConfig, Pose2, LaserScanConfig, Wrapper
+from karto_scanmatcher import ScanMatcherConfig, Pose2, LaserScanConfig, Wrapper
 from yag_slam.models import LocalizedRangeScan
 from yag_slam.graph import LinkLabel
 from tiny_tf.tf import Transform
